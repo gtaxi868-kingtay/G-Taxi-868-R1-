@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
-import { theme } from '../theme';
-import { GlassView } from './GlassView';
-import { GlassButton } from './GlassButton';
-import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import React, { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from './Toast';
+import { Button, Field, GUTTER, RADIUS, SPACE, Txt, useTheme } from '../ui/kit';
 
 interface SavedPlaceModalProps {
     visible: boolean;
@@ -13,99 +12,45 @@ interface SavedPlaceModalProps {
 }
 
 export function SavedPlaceModal({ visible, onClose, onSave, defaultLabel = '' }: SavedPlaceModalProps) {
+    const m = useTheme();
+    const insets = useSafeAreaInsets();
     const [label, setLabel] = useState(defaultLabel);
     const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // The label used to stay at its first value, so "Work" opened as "Home".
+    useEffect(() => { if (visible) setLabel(defaultLabel); }, [visible, defaultLabel]);
+
     const handleSave = async () => {
         if (!label || !address) return;
-
         setLoading(true);
         try {
             await onSave(label, address);
             onClose();
             setLabel('');
             setAddress('');
-        } catch (error) {
-            Alert.alert('Error', 'Could not save this place. Please try again.');
+        } catch {
+            toast('Could not save this place. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={onClose}
-        >
-            <TouchableWithoutFeedback onPress={onClose}>
-                <View style={styles.overlay}>
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        style={styles.keyboardView}
-                    >
-                        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                            <GlassView style={styles.modalContainer} intensity="heavy">
-                                <Text style={styles.title}>Save Place</Text>
-
-                                <Text style={styles.label}>Label</Text>
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="e.g. Home, Work, Gym"
-                                        placeholderTextColor={theme.colors.text.tertiary}
-                                        value={label}
-                                        onChangeText={setLabel}
-                                        autoCapitalize="words"
-                                    />
-                                </View>
-
-                                <Text style={styles.label}>Address</Text>
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Enter address"
-                                        placeholderTextColor={theme.colors.text.tertiary}
-                                        value={address}
-                                        onChangeText={setAddress}
-                                    />
-                                </View>
-
-                                <View style={styles.buttonRow}>
-                                    <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                                        <Text style={styles.cancelText}>Cancel</Text>
-                                    </TouchableOpacity>
-
-                                    <GlassButton
-                                        title="Save Place"
-                                        onPress={handleSave}
-                                        loading={loading}
-                                        variant="primary"
-                                        style={styles.saveButton}
-                                        disabled={!label || !address}
-                                    />
-                                </View>
-                            </GlassView>
-                        </TouchableWithoutFeedback>
-                    </KeyboardAvoidingView>
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+                <Pressable style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)' }} onPress={onClose} accessibilityLabel="Close" />
+                <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                    <Txt variant="title">{defaultLabel ? `Set your ${defaultLabel.toLowerCase()} address` : 'Save a place'}</Txt>
+                    <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs, marginBottom: SPACE.lg }}>Then you can book it in one tap.</Txt>
+                    <Field label="Name" placeholder="e.g. Home, Work, Gym" value={label} onChangeText={setLabel} autoCapitalize="words" />
+                    <Field label="Address" placeholder="Street and area" value={address} onChangeText={setAddress} autoFocus />
+                    <View style={{ flexDirection: 'row', gap: SPACE.md }}>
+                        <Button title="Cancel" variant="secondary" style={{ flex: 1 }} onPress={onClose} />
+                        <Button title="Save" style={{ flex: 1 }} loading={loading} disabled={!label || !address} onPress={handleSave} />
+                    </View>
                 </View>
-            </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }
-
-const styles = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: theme.spacing.lg },
-    keyboardView: { width: '100%' },
-    modalContainer: { borderRadius: theme.borderRadius.xl, padding: theme.spacing.xl },
-    title: { fontSize: theme.typography.sizes.xl, fontWeight: theme.typography.weights.bold, color: theme.colors.text.primary, marginBottom: theme.spacing.lg, textAlign: 'center' },
-    label: { color: theme.colors.text.secondary, fontSize: theme.typography.sizes.sm, marginBottom: theme.spacing.xs, marginLeft: theme.spacing.xs },
-    inputContainer: { backgroundColor: theme.colors.glass.backgroundLight, borderRadius: theme.borderRadius.lg, paddingHorizontal: theme.spacing.md, paddingVertical: Platform.OS === 'ios' ? theme.spacing.md : theme.spacing.sm, marginBottom: theme.spacing.lg, ...ghostBorder(0.15) },
-    input: { color: theme.colors.text.primary, fontSize: theme.typography.sizes.md },
-    buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing.md },
-    cancelButton: { padding: theme.spacing.md },
-    cancelText: { color: theme.colors.text.secondary, fontSize: theme.typography.sizes.md },
-    saveButton: { minWidth: 120 },
-});

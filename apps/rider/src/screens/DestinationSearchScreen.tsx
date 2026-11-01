@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TextInput, TouchableOpacity,
-    FlatList, ScrollView, ActivityIndicator, Keyboard,
+    View, TextInput, Pressable, FlatList, ScrollView, ActivityIndicator, Keyboard,
     KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,8 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { supabase, SavedPlace, Location as RideLocation, DEFAULT_LOCATION } from '@gtaxi/core';
 import { logAppEvent } from '../services/analytics';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { Button, EmptyState, FONT, GUTTER, IconButton, RADIUS, Row, Section, SPACE, Txt, useTheme } from '../ui/kit';
 import { getRecentRides, getSavedPlaces, savePlace } from '../services/api';
 import { AppScreenProps } from '../navigation/types';
 
@@ -21,7 +19,9 @@ interface RecentItem { id: string; name: string; address: string; latitude: numb
 export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'DestinationSearch'>) {
     const insets = useSafeAreaInsets();
     const netInfo = useNetInfo();
-    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode } = route.params || {};
+    // `stop`: a shop the rider wants to stop at on the way (Home shop card);
+    // carried through to RideConfirmation once they pick where they're going.
+    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode, stop } = route.params || {};
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -168,188 +168,111 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
             sourceMetadata,
             kioskId,
             taxiStandId,
+            stop,
         });
     };
 
-    const renderResult = ({ item }: { item: any }) => (
-        <TouchableOpacity
-            style={s.row}
-            onPress={() => choose(item.latitude, item.longitude, item.name || item.address)}
-            accessibilityLabel={`Select ${item.name || item.address}`}
-            accessibilityRole="button"
-        >
-            <View style={s.rowIconNeutral}>
-                <Ionicons name="location-sharp" size={18} color="rgba(242,245,248,0.6)" />
-            </View>
-            <View style={s.rowInfo}>
-                <Text style={s.rowName}>{item.name || item.address?.split(',')[0]}</Text>
-                <Text style={s.rowAddress} numberOfLines={1}>{item.address}</Text>
-            </View>
-        </TouchableOpacity>
+    const m = useTheme();
+    const placeholder = editPickupMode ? 'Search for your pickup point' : saveMode ? 'Search for a place to save' : 'Where to?';
+
+    const place = (key: string, icon: any, title: string, subtitle: string, onPress: () => void, last?: boolean) => (
+        <Row key={key} icon={icon} title={title} subtitle={subtitle || undefined} onPress={onPress} last={last} />
     );
 
-    const placeholder = editPickupMode ? 'Select a verified pickup point' : 'Search verified locations';
-
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
-                <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                    <View style={s.headerRow}>
-                        <TouchableOpacity
-                            style={s.backBtn}
-                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
-                            accessibilityLabel="Go back"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                        </TouchableOpacity>
-
-                        <View style={s.inputContainer}>
-                            <Ionicons name="search" size={18} color="rgba(242,245,248,0.5)" style={{ marginRight: 8 }} />
-                            <TextInput
-                                ref={inputRef}
-                                style={s.input}
-                                placeholder={placeholder}
-                                placeholderTextColor="rgba(242,245,248,0.4)"
-                                value={query}
-                                onChangeText={onChangeQuery}
-                                selectionColor={VOICES.rider.accent}
-                                autoFocus
-                                returnKeyType="search"
-                            />
-                            {isLoading && <ActivityIndicator size="small" color={VOICES.rider.accent} />}
-                        </View>
-                    </View>
-                    {editPickupMode && (
-                        <Text style={s.editHint}>Choose a more precise pickup point</Text>
-                    )}
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+            <View style={{ paddingTop: insets.top + SPACE.sm, paddingHorizontal: GUTTER - 4, paddingBottom: SPACE.md, flexDirection: 'row', alignItems: 'center' }}>
+                <IconButton icon="chevron-back" label="Back" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }} />
+                <View style={{ flex: 1, marginLeft: SPACE.sm, height: 52, borderRadius: RADIUS.pill, backgroundColor: m.field, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACE.lg, borderWidth: 1.5, borderColor: m.accent }}>
+                    <Ionicons name="search" size={18} color={m.searchIcon} />
+                    <TextInput
+                        ref={inputRef}
+                        style={{ flex: 1, height: '100%', marginLeft: SPACE.sm, color: m.ink, fontFamily: FONT.semibold, fontSize: 16 }}
+                        placeholder={placeholder}
+                        placeholderTextColor={m.faint}
+                        value={query}
+                        onChangeText={onChangeQuery}
+                        selectionColor={m.accent}
+                        autoFocus
+                        returnKeyType="search"
+                        accessibilityLabel={placeholder}
+                    />
+                    {isLoading ? <ActivityIndicator size="small" color={m.accent} /> : query.length > 0 ? (
+                        <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} onPress={() => onChangeQuery('')}>
+                            <Ionicons name="close-circle" size={18} color={m.faint} />
+                        </Pressable>
+                    ) : null}
                 </View>
-
-                {netInfo.isConnected === false && (
-                    <View style={s.offlineBanner}>
-                        <Ionicons name="cloud-offline-outline" size={15} color="#F59E0B" />
-                        <Text style={s.offlineText}>You're offline — search needs a connection. Saved places still work.</Text>
+            </View>
+            {editPickupMode && (
+                <Txt variant="caption" tone="dim" style={{ paddingHorizontal: GUTTER, marginBottom: SPACE.sm }}>Choose the exact spot where the driver should meet you.</Txt>
+            )}
+            {stop && !editPickupMode && (
+                <View style={{ marginHorizontal: GUTTER, marginBottom: SPACE.md, flexDirection: 'row', alignItems: 'center', padding: SPACE.md, borderRadius: 16,
+                    backgroundColor: m.field, borderWidth: 2, borderBottomWidth: 4, borderColor: m.chipBorder }}>
+                    <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: '#FF8A3D', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="storefront" size={17} color="#FFFFFF" />
                     </View>
-                )}
+                    <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                        <Txt variant="overline" tone="faint">STOP ON THE WAY</Txt>
+                        <Txt variant="bodyStrong" numberOfLines={1}>{stop.name}</Txt>
+                    </View>
+                </View>
+            )}
 
+            {netInfo.isConnected === false && (
+                <View style={{ marginHorizontal: GUTTER, marginBottom: SPACE.sm, padding: SPACE.md, borderRadius: 14, flexDirection: 'row', alignItems: 'center', backgroundColor: m.key === 'day' ? '#FFF6E5' : 'rgba(245,158,11,0.16)' }}>
+                    <Ionicons name="cloud-offline-outline" size={16} color="#D97706" />
+                    <Txt variant="caption" style={{ flex: 1, marginLeft: SPACE.sm }}>You are offline. Search needs a connection; saved places still work.</Txt>
+                </View>
+            )}
+
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 {query.length > 0 ? (
                     <FlatList
                         data={results}
                         keyExtractor={(item: any, i) => item.id?.toString() || `res-${i}`}
-                        renderItem={renderResult}
+                        renderItem={({ item, index }) => place(
+                            `r-${index}`, 'location-outline',
+                            item.name || item.address?.split(',')[0] || 'Place', item.address || '',
+                            () => choose(item.latitude, item.longitude, item.name || item.address),
+                            index === results.length - 1,
+                        )}
                         keyboardShouldPersistTaps="handled"
-                        contentContainerStyle={s.list}
+                        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + SPACE.xxl }}
                         ListEmptyComponent={
                             isLoading ? null : error ? (
-                                <View style={s.empty}>
-                                    <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
-                                    <Text style={s.emptyText}>Couldn't search right now</Text>
-                                    <TouchableOpacity style={s.retryBtn} onPress={() => runSearch(query.trim())} accessibilityRole="button" accessibilityLabel="Retry search">
-                                        <Text style={s.retryText}>Retry</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <View style={s.empty}>
-                                    <Text style={s.emptyText}>No match for "{query}"</Text>
-                                    <Text style={s.emptySub}>Only Verified Merchant Pins and landmarks are available. Try a different search.</Text>
-                                </View>
-                            )
+                                <EmptyState icon="alert-circle-outline" title="Search is not working right now" body="Check your connection and try again."
+                                    action={<Button title="Try again" variant="secondary" onPress={() => runSearch(query.trim())} />} />
+                            ) : query.trim().length >= 2 ? (
+                                <EmptyState icon="search-outline" title={`No places match "${query.trim()}"`} body="Try a landmark, a shop name or a street." />
+                            ) : null
                         }
                     />
                 ) : (
-                    <ScrollView
-                        contentContainerStyle={s.list}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                    >
+                    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + SPACE.xxl }}>
                         {saved.length > 0 && (
-                            <>
-                                <View style={s.sectionHeader}>
-                                    <Ionicons name="star-outline" size={15} color="rgba(242,245,248,0.5)" />
-                                    <Text style={s.sectionLabel}>Saved</Text>
-                                </View>
-                                {saved.map((p) => (
-                                    <TouchableOpacity
-                                        key={p.id}
-                                        style={s.row}
-                                        onPress={() => choose(p.lat, p.lng, p.address || p.label)}
-                                        accessibilityLabel={`Select saved place ${p.label}`}
-                                        accessibilityRole="button"
-                                    >
-                                        <View style={s.rowIconBrand}>
-                                            <Ionicons name={(p.icon as any) || 'bookmark'} size={18} color={VOICES.rider.accent} />
-                                        </View>
-                                        <View style={s.rowInfo}>
-                                            <Text style={s.rowName}>{p.label}</Text>
-                                            <Text style={s.rowAddress} numberOfLines={1}>{p.address}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </>
+                            <Section title="Saved" style={{ marginTop: SPACE.sm }}>
+                                {saved.map((p, i) => place(p.id, p.label === 'Home' ? 'home-outline' : p.label === 'Work' ? 'briefcase-outline' : 'bookmark-outline',
+                                    p.label, p.address, () => choose(p.lat, p.lng, p.address || p.label), i === saved.length - 1))}
+                            </Section>
                         )}
-
-                        {recents.length > 0 ? (
-                            <>
-                                <View style={s.sectionHeader}>
-                                    <Ionicons name="time-outline" size={15} color="rgba(242,245,248,0.5)" />
-                                    <Text style={s.sectionLabel}>Recent</Text>
-                                </View>
-                                {recents.map((r) => (
-                                    <TouchableOpacity
-                                        key={r.id}
-                                        style={s.row}
-                                        onPress={() => choose(r.latitude, r.longitude, r.address || r.name)}
-                                        accessibilityLabel={`Select recent ${r.name}`}
-                                        accessibilityRole="button"
-                                    >
-                                        <View style={s.rowIconNeutral}>
-                                            <Ionicons name="location-sharp" size={18} color="rgba(242,245,248,0.6)" />
-                                        </View>
-                                        <View style={s.rowInfo}>
-                                            <Text style={s.rowName}>{r.name}</Text>
-                                            <Text style={s.rowAddress} numberOfLines={1}>{r.address}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </>
-                        ) : saved.length === 0 && nearbyPins.length === 0 ? (
-                            <View style={s.empty}>
-                                <Ionicons name="navigate-outline" size={32} color="rgba(242,245,248,0.3)" />
-                                <Text style={s.emptyText}>Select a verified location</Text>
-                                <Text style={s.emptySub}>Only Verified Merchant Pins, landmarks, and your saved places are available for safety.</Text>
-                            </View>
-                        ) : null}
-
-                        {nearbyPins.length > 0 && query.length === 0 && (
-                            <>
-                                <View style={s.sectionHeader}>
-                                    <Ionicons name="location-outline" size={15} color="rgba(242,245,248,0.5)" />
-                                    <Text style={s.sectionLabel}>Verified Pins Nearby</Text>
-                                </View>
-                                {nearbyPins.map((pin: any, i: number) => (
-                                    <TouchableOpacity
-                                        key={pin.id || `pin-${i}`}
-                                        style={s.row}
-                                        onPress={() => choose(pin.latitude, pin.longitude, pin.address || pin.name)}
-                                        accessibilityLabel={`Select ${pin.name}`}
-                                        accessibilityRole="button"
-                                    >
-                                        <View style={s.rowIconBrand}>
-                                            <Ionicons name="business" size={18} color="#EAF3F6" />
-                                        </View>
-                                        <View style={s.rowInfo}>
-                                            <Text style={s.rowName}>{pin.name}</Text>
-                                            <Text style={s.rowAddress} numberOfLines={1}>
-                                                {pin.distance_meters ? `${Math.round(pin.distance_meters)}m` : ''} {pin.address}
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </>
+                        {recents.length > 0 && (
+                            <Section title="Recent">
+                                {recents.map((r, i) => place(r.id, 'time-outline', r.name, r.address, () => choose(r.latitude, r.longitude, r.address || r.name), i === recents.length - 1))}
+                            </Section>
+                        )}
+                        {nearbyPins.length > 0 && (
+                            <Section title="Nearby">
+                                {nearbyPins.map((pin: any, i: number) => place(pin.id || `pin-${i}`, 'business-outline', pin.name,
+                                    `${pin.distance_meters ? `${Math.round(pin.distance_meters)} m · ` : ''}${pin.address || ''}`,
+                                    () => choose(pin.latitude, pin.longitude, pin.address || pin.name), i === nearbyPins.length - 1))}
+                            </Section>
+                        )}
+                        {saved.length === 0 && recents.length === 0 && nearbyPins.length === 0 && (
+                            <EmptyState icon="navigate-outline" title="Where are you going?" body="Type a landmark, a shop or an address." />
                         )}
                     </ScrollView>
                 )}
@@ -357,54 +280,3 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
         </View>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    header: {
-        paddingHorizontal: 20, paddingBottom: 16,
-        borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
-        backgroundColor: SURFACE.containerLow,
-    },
-    headerRow: { flexDirection: 'row', alignItems: 'center' },
-    backBtn: {
-        width: 44, height: 44, borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center', justifyContent: 'center',
-        ...ghostBorder(0.1),
-    },
-    inputContainer: {
-        flex: 1, height: 50, backgroundColor: SURFACE.base, borderRadius: 14,
-        marginLeft: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,
-        ...ghostBorder(0.1),
-    },
-    input: { flex: 1, height: '100%', color: '#EAF3F6', fontSize: 16 },
-    editHint: { fontSize: 12, color: 'rgba(242,245,248,0.5)', marginTop: 10, marginLeft: 4 },
-
-    offlineBanner: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        marginHorizontal: 20, marginTop: 14, padding: 12, borderRadius: 12,
-        backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.22)',
-    },
-    offlineText: { flex: 1, fontSize: 12, color: '#F59E0B', fontWeight: '600' },
-
-    list: { padding: 20, paddingBottom: 40 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 12 },
-    sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(242,245,248,0.5)', letterSpacing: 1, textTransform: 'uppercase' },
-
-    row: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: SURFACE.containerLow, padding: 14, borderRadius: 18, marginBottom: 10,
-        ...ghostBorder(0.06),
-    },
-    rowIconBrand: { width: 44, height: 44, borderRadius: 14, backgroundColor: `${VOICES.rider.accent}22`, alignItems: 'center', justifyContent: 'center' },
-    rowIconNeutral: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    rowInfo: { marginLeft: 14, flex: 1 },
-    rowName: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', marginBottom: 2 },
-    rowAddress: { fontSize: 13, fontWeight: '500', color: 'rgba(242,245,248,0.5)' },
-
-    empty: { marginTop: 48, alignItems: 'center', gap: 8 },
-    emptyText: { fontSize: 16, fontWeight: '700', color: 'rgba(242,245,248,0.7)' },
-    emptySub: { fontSize: 13, color: 'rgba(242,245,248,0.4)', textAlign: 'center', paddingHorizontal: 40 },
-    retryBtn: { marginTop: 10, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14, backgroundColor: VOICES.rider.accent },
-    retryText: { fontSize: 14, fontWeight: '800', color: SURFACE.base },
-});

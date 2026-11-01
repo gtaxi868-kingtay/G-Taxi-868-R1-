@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
-    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
-    Linking, PanResponder,
+    View, StyleSheet, Image, ScrollView, Pressable, Animated, Easing,
+    useWindowDimensions, Alert, Platform, Modal, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -13,11 +12,15 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Reanimated, {
-    useSharedValue, withSpring,
-    useAnimatedStyle, withDelay,
-    FadeIn, FadeOut, useReducedMotion,
-} from 'react-native-reanimated';
+import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import { HomeSheet } from '../components/home/HomeSheet';
+import { CarMarker } from '../components/home/CarMarker';
+import { useTouchPoints } from '../hooks/useTouchPoints';
+import { usualTrip, type UsualTrip } from '../utils/usualTrip';
+import { ShopPin } from '../components/home/ShopPin';
+import { ShopCarousel } from '../components/home/ShopCarousel';
+import { ShopActionSheet, type ShopAction } from '../components/home/ShopActionSheet';
+import { rankShops, type MapShop } from '../components/home/rankShops';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -26,17 +29,20 @@ import { useRide } from '../context/RideContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
-import { Sidebar } from '../components/Sidebar';
-import { LayerDeck, Layer } from '../components/home/LayerDeck';
-import { LiquidGlass, Skeleton } from '@gtaxi/design-system/native';
-import { ANIMATION, SURFACE, VOICES } from '@gtaxi/design-system';
-import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { KeyTile } from '../components/KeyTile';
+import { useServices, SERVICE_ROUTES, SERVICE_COLORS } from '../hooks/useServices';
+import type { Layer } from '../components/home/LayerDeck';
+import { greetingFor } from '../theme/mood';
+import {
+    BRAND_GRADIENT, BrandBadge, Button, Card, Chip, EmptyState, Field, GUTTER, IconButton,
+    Pop, Progress, RADIUS, Section, shade, SPACE, Txt, useTheme,
+} from '../ui/kit';
+import { toast } from '../components/Toast';
 
 const { supabase } = initializeSupabaseClient('native');
 
-const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
-const BRAND = '#34E6EC';
+const BRAND = '#8B7CFF';
 
 const DARK_MAP_STYLE = [
     { elementType: 'geometry', stylers: [{ color: '#07070F' }] },
@@ -53,22 +59,21 @@ import { SavedPlace, Location as RideLocation, haversineMeters, isWithinRadius, 
 import { SavedPlaceModal } from '../components/SavedPlaceModal';
 import { RecentRidesModal } from '../components/RecentRidesModal';
 import { formatTTDDollars } from '../utils/currency';
-import { AppScreenProps } from '../navigation/types';
+import type { TabScreenProps } from '../navigation/types';
 
-export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
+export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     // Platform-wide switches from the admin's Platform Control page. One query
     // for all of them, kept live over realtime.
     const { flags: platformFlags } = usePlatformFlags();
+    // Which services this rider has unlocked (shared with the Services tab).
+    const { layers, featureFlags, homeSuggestion } = useServices();
 
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, fete: false, events: false });
-    const [nextUnlock, setNextUnlock] = useState<{ vertical: string; progress: number; required: number; label: string } | null>(null);
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -81,8 +86,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
     const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [activeLayerId, setActiveLayerId] = useState('ride');
-    const [homeSuggestion, setHomeSuggestion] = useState<string | null>(null);
 
     const nfcDedupCache = useRef<Map<string, number>>(new Map());
     const netInfo = useNetInfo();
@@ -90,43 +93,38 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [voiceModalVisible, setVoiceModalVisible] = useState(false);
     const [voiceInputText, setVoiceInputText] = useState('');
 
-    const [isVerticalsLoading, setIsVerticalsLoading] = useState(true);
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
-    const [nearbyVendors, setNearbyVendors] = useState<Array<{ id: string; name: string; store_type: string; address: string; delivery_fee_cents: number; avg_delivery_minutes: number; is_open: boolean; distance_meters: number }>>([]);
+    // Every active shop with a location near the rider (all types, not just
+    // grocery). These are the map pins and the swipe cards.
+    const [shops, setShops] = useState<MapShop[]>([]);
+    const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+    const [actionShop, setActionShop] = useState<MapShop | null>(null);
+    // "Your usual": where this rider most often goes at this time of day.
+    const [usual, setUsual] = useState<UsualTrip | null>(null);
+    useEffect(() => {
+        if (!user?.id) return;
+        let cancelled = false;
+        supabase
+            .from('rides')
+            .select('created_at, status, dropoff_lat, dropoff_lng, dropoff_address')
+            .eq('rider_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(60)
+            .then(({ data, error }: any) => {
+                if (cancelled || error) return;
+                setUsual(usualTrip(data || []));
+            }, () => {});
+        return () => { cancelled = true; };
+    }, [user?.id]);
+    const mapRef = useRef<MapView>(null);
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
     const reducedMotion = useReducedMotion();
 
-    // Sheet snap positions: PEEK shows 220px at the bottom; EXPANDED shows most of screen
-    const PEEK_OFFSET = height - 220;
-    const EXPANDED_OFFSET = insets.top + 60;
-
-    const sheetY = useSharedValue(reducedMotion ? PEEK_OFFSET : height);
-
-    const panResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 8,
-            onPanResponderGrant: () => {
-                Haptics.selectionAsync();
-            },
-            onPanResponderMove: (_, gs) => {
-                const next = sheetY.value + gs.dy;
-                if (next >= EXPANDED_OFFSET && next <= PEEK_OFFSET) {
-                    sheetY.value = next;
-                }
-            },
-            onPanResponderRelease: (_, gs) => {
-                const mid = (EXPANDED_OFFSET + PEEK_OFFSET) / 2;
-                const snapTo = (sheetY.value < mid || gs.vy < -0.5)
-                    ? EXPANDED_OFFSET
-                    : PEEK_OFFSET;
-                sheetY.value = withSpring(snapTo, { damping: 22, stiffness: 180 });
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            },
-        })
-    ).current;
+    const [sheetH, setSheetH] = useState(360);
+    const [boxH, setBoxH] = useState(0);
 
     const { activeRide: contextActiveRide } = useRide();
 
@@ -179,82 +177,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
         fetchPlaces();
 
-        const fetchEnabledVerticals = async () => {
-            setIsVerticalsLoading(true);
-            try {
-                // kiosk/carnival/events used to be three separate round-trips to
-                // system_feature_flags. usePlatformFlags fetches every switch in
-                // one query and keeps them live, so adding more gates costs
-                // nothing extra.
-                const [progressRes] = await Promise.all([
-                    supabase.functions.invoke('get_rider_progress'),
-                ]);
-
-                if (progressRes.error) throw progressRes.error;
-
-                const { data: suggestionData } = await supabase
-                    .rpc('get_home_suggestion', { p_rider_id: profile?.id })
-                    .maybeSingle();
-                const suggestion = suggestionData as { cta_text?: string; vertical?: string; reason_code?: string } | null;
-                if (suggestion?.cta_text) {
-                    setHomeSuggestion(suggestion.cta_text);
-                }
-
-                // `unlocked_verticals` is now the EFFECTIVE list: the rider
-                // earned it AND the admin currently allows it. That
-                // intersection happens in get_rider_progress so it cannot be
-                // bypassed from here. Previously this only reflected what the
-                // rider earned, which is why the admin's vertical toggle
-                // appeared to do nothing.
-                const unlocked: string[] = progressRes.data?.data?.unlocked_verticals || [];
-
-                // Verticals with no progression gate (carnival, events) still
-                // have to respect the same admin switch. Default to true when
-                // the map is absent so an older payload can't blank the screen.
-                const platform: Record<string, boolean> = progressRes.data?.data?.platform_enabled || {};
-                const adminAllows = (name: string) => platform[name] !== false;
-
-                // This effect has an empty dependency array, so it must NOT read
-                // platformFlags — it would capture the first render's values and
-                // never see an admin toggle. The platform switch is applied at
-                // render time in the `layers` memo below, which does depend on
-                // them. What is computed here is only: did the rider earn it,
-                // and does vertical_settings allow it.
-                const flags = {
-                    grocery: unlocked.includes('grocery'),
-                    laundry: unlocked.includes('laundry_nfc') || unlocked.includes('laundry'),
-                    merchant: unlocked.includes('merchant_delivery'),
-                    kiosk: unlocked.includes('laundry_nfc') || unlocked.includes('kiosk'),
-                    caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
-                    fete: adminAllows('carnival'),
-                    events: adminAllows('events'),
-                };
-
-                setFeatureFlags(flags);
-                setNextUnlock(progressRes.data?.data?.next_unlock ?? null);
-            } catch (err) {
-                console.warn('[HomeScreen] Failed to fetch rider progress:', err);
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, fete: false, events: false });
-                setNextUnlock(null);
-            } finally {
-                setIsVerticalsLoading(false);
-            }
-        };
-        fetchEnabledVerticals();
-
-        const verticalsChannel = supabase
-            .channel('verticals-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'vertical_settings' },
-                () => { fetchEnabledVerticals(); }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'rider_progression', filter: `rider_id=eq.${profile?.id}` },
-                () => { fetchEnabledVerticals(); }
-            )
-            .subscribe();
 
         const fetchStatus = async () => {
             try {
@@ -377,53 +299,49 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             fetchProactiveSuggestion();
         }
 
-        if (!reducedMotion) {
-            sheetY.value = withDelay(200, withSpring(PEEK_OFFSET, { damping: 22, stiffness: 180 }));
-        } else {
-            sheetY.value = PEEK_OFFSET;
-        }
-
-        return () => {
-            verticalsChannel?.unsubscribe();
-        };
     }, []);
 
     useEffect(() => {
         const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
         const lng = location?.coords?.longitude || DEFAULT_LOCATION.longitude;
-        if (!featureFlags.grocery) return;
-        // Personalized ranking (visits, learned routes, featured promos) with
-        // consent; plain distance ranking when suggestions are off. Falls back
-        // to the old RPC if g_rank_merchants isn't deployed yet.
+        // g_rank_merchants: active shops within 20 km, ranked; it does NOT bill
+        // promotion impressions (checked live 2026-10-25), so loading pins for
+        // every rider costs shops nothing. All store types, up to 30.
+        const toShop = (m: any): MapShop => ({
+            id: m.merchant_id ?? m.id,
+            name: m.name,
+            lat: m.lat,
+            lng: m.lng,
+            distance_m: m.distance_m ?? m.distance_meters,
+            is_featured: !!(m.is_featured ?? m.is_promoted),
+            is_open: !!m.is_open,
+            store_type: m.store_type,
+            category: m.category ?? m.store_type,
+            address: m.address ?? '',
+            cover_image_url: m.cover_image_url ?? null,
+            avg_delivery_minutes: m.avg_delivery_minutes ?? 30,
+            delivery_fee_cents: m.delivery_fee_cents ?? 0,
+            is_usual: !!m.is_usual,
+        });
         supabase
-            .rpc('g_rank_merchants', { p_rider_id: profile?.id ?? null, p_lat: lat, p_lng: lng, p_store_type: 'grocery', p_limit: 10 })
+            .rpc('g_rank_merchants', { p_rider_id: profile?.id ?? null, p_lat: lat, p_lng: lng, p_store_type: null, p_limit: 30 })
             .then(
                 ({ data, error }) => {
                     if (error || !data) {
+                        // Older fallback; same behaviour it always had.
                         supabase
-                            .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
+                            .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: null })
                             .then(
-                                ({ data: fallback }) => setNearbyVendors(fallback || []),
-                                (err: unknown) => console.warn('[HomeScreen] merchant rail failed:', err),
+                                ({ data: fallback }) => setShops(rankShops((fallback || []).map(toShop))),
+                                (err: unknown) => console.warn('[HomeScreen] shop pins failed:', err),
                             );
                         return;
                     }
-                    setNearbyVendors(data.map((m: any) => ({
-                        id: m.merchant_id,
-                        name: m.name,
-                        store_type: m.store_type,
-                        address: m.address ?? '',
-                        delivery_fee_cents: m.delivery_fee_cents ?? 0,
-                        avg_delivery_minutes: m.avg_delivery_minutes ?? 30,
-                        is_open: m.is_open,
-                        distance_meters: m.distance_m,
-                        is_usual: m.is_usual,
-                        is_featured: m.is_featured,
-                    })));
+                    setShops(rankShops(data.map(toShop)));
                 },
                 (err: unknown) => console.warn('[HomeScreen] g_rank_merchants failed:', err),
             );
-    }, [location, featureFlags.grocery, profile?.id]);
+    }, [location, profile?.id]);
 
     useEffect(() => {
         const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
@@ -480,12 +398,14 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const currentLat = location?.coords.latitude || DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
     const { drivers: realtimeDrivers } = useNearbyDrivers(currentLat, currentLng);
+    // G-Touch Points riders are allowed to see (live/activated only).
+    const touchPoints = useTouchPoints();
 
     // Trust caption: convert the abstract map dots into an explicit promise.
     // ETA is a rough estimate from nearest driver distance (~30km/h urban => m/500 ≈ min),
     // surfaced with a "~" so it never reads as a hard guarantee.
     const nearestDriverMeters = realtimeDrivers.reduce<number | null>((min, d) => {
-        const dlat = (d.lat as any), dlng = (d.lng as any);
+        const dlat = d.lat, dlng = d.lng;
         if (!Number.isFinite(dlat) || !Number.isFinite(dlng)) return min;
         const m = haversineMeters(currentLat, currentLng, dlat, dlng);
         return min === null || m < min ? m : min;
@@ -670,22 +590,24 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-            navigation.navigate('RideConfirmation', {
-                destination: {
-                    latitude: data.refined_lat,
-                    longitude: data.refined_lng,
-                    address: data.landmark_name || data.address
+            // The photo pins down WHERE THE RIDER IS (vision_pickup's own prompt:
+            // "the user has sent a photo and their current GPS"). It used to be
+            // sent as the DESTINATION with GPS as pickup, i.e. a ride from here
+            // to here. Now it becomes the pickup and the rider picks where to go.
+            const refinedLat = Number(data.refined_lat), refinedLng = Number(data.refined_lng);
+            const hasRefined = Number.isFinite(refinedLat) && Number.isFinite(refinedLng);
+            navigation.navigate('DestinationSearch', {
+                currentLocation: {
+                    latitude: hasRefined ? refinedLat : currentPos.coords.latitude,
+                    longitude: hasRefined ? refinedLng : currentPos.coords.longitude,
+                    address: data.landmark_name || data.address || 'Your Location',
                 },
-                pickup: {
-                    latitude: currentPos.coords.latitude,
-                    longitude: currentPos.coords.longitude,
-                    address: 'Your Location'
-                }
             });
 
         } catch (err: any) {
-            console.error("Vision Error:", err);
-            Alert.alert("AI Sight Failed", err.message || "We couldn't pinpoint your location. Please type your destination.");
+            console.warn("Vision pickup failed:", err?.message);
+            // Never show a raw provider error to a rider.
+            Alert.alert("Couldn't read that photo", "We couldn't work out where you are from the photo. Check your pickup pin on the map, then tap Where to?.");
         } finally {
             setVisionLoading(false);
         }
@@ -752,33 +674,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
     };
 
-    const expandSheet = () => {
-        sheetY.value = withSpring(EXPANDED_OFFSET, { damping: 22, stiffness: 180 });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    };
-
     // Ride card sub-line carries the live driver-presence promise when drivers exist.
     const driverSubText = realtimeDrivers.length > 0
         ? `${realtimeDrivers.length} ${realtimeDrivers.length === 1 ? 'driver' : 'drivers'} nearby${driverEtaMin ? ` · ~${driverEtaMin} min` : ''}`
         : 'Get a taxi anywhere';
 
-    const layers: Layer[] = useMemo(() => {
-        const arr: Layer[] = [
-            { id: 'ride', name: 'Ride', sub: driverSubText, accent: BRAND, icon: 'car-sport-sharp', search: homeSuggestion || 'Where to?' },
-        ];
-        if (featureFlags.grocery) arr.push({ id: 'market', name: 'Market', sub: 'Groceries delivered', accent: '#F59E0B', icon: 'cart-sharp', search: 'Shop groceries & more' });
-        if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#34E6EC', icon: 'shirt-sharp', search: 'Schedule a pickup' });
-        if (featureFlags.merchant) arr.push({ id: 'merchant', name: 'Food', sub: 'Delivery from local spots', accent: '#F97316', icon: 'fast-food-sharp', search: 'Order food & more' });
-        // Each of these needs BOTH gates: the rider earned it / the vertical is
-        // enabled (featureFlags), AND the platform switch on Platform Control is
-        // on (platformFlags). Either one off hides the tile.
-        if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#CBD6DE', icon: 'airplane-sharp', search: 'Browse escapes' });
-        if (featureFlags.kiosk && platformFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
-        if (featureFlags.events && platformFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#6D28D9', icon: 'calendar-sharp', search: 'What\'s happening' });
-        if (featureFlags.fete && platformFlags.carnival) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
-        if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#34E6EC', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
-        return arr;
-    }, [featureFlags, platformFlags, nextUnlock, driverSubText, homeSuggestion]);
 
     const openDestinationSearch = () => {
         const accuracy = location?.coords?.accuracy;
@@ -794,59 +694,139 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
     const handleLayerPrimary = (layer: Layer) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        switch (layer.id) {
-            case 'ride': openDestinationSearch(); break;
-            case 'market': navigation.navigate('GroceryStorefront'); break;
-            case 'laundry': navigation.navigate('LaundryLanding'); break;
-            case 'merchant': navigation.navigate('FoodDelivery'); break;
-            case 'escape': navigation.navigate('EscapeStorefront'); break;
-            case 'tap': (navigation.navigate as any)('NfcScan'); break;
-            case 'events': navigation.navigate('Events'); break;
-            case 'fete': navigation.navigate('Carnival'); break;
-            default: break;
+        if (layer.id === 'ride') { openDestinationSearch(); return; }
+        const route = SERVICE_ROUTES[layer.id];
+        if (route) (navigation.navigate as any)(route);
+    };
+
+    // Store says this build is older than the minimum allowed.
+    const needsUpdate = (() => {
+        const min = systemStatus.config?.min_version_rider;
+        const cur = Constants.expoConfig?.version;
+        if (!min || !cur) return false;
+        const c = cur.split('.').map(Number), n = min.split('.').map(Number);
+        for (let i = 0; i < 3; i++) {
+            if ((c[i] || 0) < (n[i] || 0)) return true;
+            if ((c[i] || 0) > (n[i] || 0)) return false;
+        }
+        return false;
+    })();
+
+    const m = useTheme();
+    const g = greetingFor();
+    const firstName = ((profile as any)?.full_name || profile?.name || '').split(' ')[0] || undefined;
+
+    // Mascot gently bobs; the search key drops on press.
+    const bob = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        if (reducedMotion) return;
+        const loop = Animated.loop(Animated.sequence([
+            Animated.timing(bob, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+            Animated.timing(bob, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        ]));
+        loop.start();
+        return () => loop.stop();
+    }, []);
+    const mascotBob = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -5] });
+    const searchPress = useRef(new Animated.Value(0)).current;
+    const searchDown = searchPress.interpolate({ inputRange: [0, 1], outputRange: [0, 5] });
+    const searchIn = () => Animated.timing(searchPress, { toValue: 1, duration: 70, useNativeDriver: true }).start();
+    const searchOut = () => Animated.spring(searchPress, { toValue: 0, speed: 18, bounciness: 10, useNativeDriver: true }).start();
+    const night = m.key === 'night';
+    const tileStyle = night ? 'navigation-night-v1' : 'light-v11';
+
+    // Live sheet height (UI thread) so the pickup pin stays centred in the
+    // map that is still visible while the sheet is dragged.
+    const sheetHeight = useSharedValue(0);
+    const pickupStyle = useAnimatedStyle(() => ({
+        top: Math.max(insets.top + 84, (boxH - sheetHeight.value) / 2 - 40),
+    }));
+
+    // Swiping to a shop's card: fly the map to it and grow its pin. The map's
+    // bottom padding follows the sheet, so the shop lands in the visible part.
+    const selectShop = React.useCallback((shop: MapShop | null) => {
+        setSelectedShopId(shop?.id ?? null);
+        const target = shop ? { latitude: shop.lat, longitude: shop.lng } : { latitude: currentLat, longitude: currentLng };
+        mapRef.current?.animateCamera({ center: target }, { duration: reducedMotion ? 0 : 450 });
+    }, [currentLat, currentLng, reducedMotion]);
+
+    const openShop = React.useCallback((shop: MapShop) => {
+        Haptics.selectionAsync().catch(() => {});
+        setSelectedShopId(shop.id);
+        setActionShop(shop);
+    }, []);
+
+    const onShopAction = (action: ShopAction, shop: MapShop) => {
+        const here = { latitude: currentLat, longitude: currentLng, address: 'Current Location' };
+        switch (action) {
+            case 'ride':
+                navigation.navigate('RideConfirmation', {
+                    pickup: here,
+                    destination: { latitude: shop.lat, longitude: shop.lng, address: shop.address || shop.name },
+                });
+                break;
+            case 'stop':
+                // Pick where you're going; the shop rides along as a stop.
+                navigation.navigate('DestinationSearch', {
+                    currentLocation: here,
+                    stop: { name: shop.name, latitude: shop.lat, longitude: shop.lng, address: shop.address, merchantId: shop.id, storeType: shop.store_type },
+                });
+                break;
+            case 'deliver':
+                (navigation.navigate as any)('ProductListing', {
+                    merchant: {
+                        id: shop.id, name: shop.name, store_type: shop.store_type, category: shop.category || shop.store_type,
+                        address: shop.address || '', delivery_fee_cents: shop.delivery_fee_cents ?? 0,
+                        avg_delivery_minutes: shop.avg_delivery_minutes ?? 30, is_open: shop.is_open, distance_meters: shop.distance_m,
+                    },
+                });
+                break;
+            default:
+                break;
         }
     };
 
-    const animatedSheet = useAnimatedStyle(() => ({
-        transform: [{ translateY: sheetY.value }]
-    }));
+    const otherLayers = layers.filter(l => l.id !== 'ride' && !l.locked);
+    const lockedLayer = layers.find(l => l.locked);
+    const fieldBg = night ? m.sheet[1] : '#FFFFFF';
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: m.page }} onLayout={(e) => setBoxH(e.nativeEvent.layout.height)}>
+            <StatusBar style={m.statusBar} />
 
-            {/* Map — fullscreen behind the sheet */}
+            {/* Map — fills the top of the screen behind the sheet */}
             <MapView
+                ref={mapRef}
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
-                customMapStyle={DARK_MAP_STYLE}
-                initialRegion={{
-                    latitude: currentLat,
-                    longitude: currentLng,
-                    latitudeDelta: 0.015,
-                    longitudeDelta: 0.015,
-                }}
+                customMapStyle={night ? DARK_MAP_STYLE : []}
+                initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.015, longitudeDelta: 0.015 }}
+                mapPadding={{ top: insets.top + 60, right: 0, bottom: sheetH, left: 0 }}
                 showsUserLocation
-                userInterfaceStyle="dark"
+                userInterfaceStyle={night ? 'dark' : 'light'}
             >
                 {ENV.MAPBOX_PUBLIC_TOKEN && (
                     <UrlTile
-                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
+                        key={tileStyle}
+                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
                         shouldReplaceMapContent={true}
                     />
                 )}
-
                 {realtimeDrivers.map(d => (
-                    <Marker
-                        key={d.id}
-                        coordinate={{ latitude: (d.lat as any) || 0, longitude: (d.lng as any) || 0 }}
-                        anchor={{ x: 0.5, y: 0.5 }}
-                        rotation={d.heading || 0}
-                    >
-                        <Image source={CAR_ASSET} style={s.carMarker} resizeMode="contain" />
+                    <CarMarker key={d.id} lat={d.lat} lng={d.lng} heading={d.heading} glide={!reducedMotion} />
+                ))}
+                {touchPoints.map(p => (
+                    <Marker key={`tp-${p.id}`} coordinate={{ latitude: p.lat, longitude: p.lng }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
+                        accessibilityLabel={`G-Touch Point, ${p.name}`}
+                        onPress={() => toast(`${p.name}: a G-Touch Point. Tap your phone or keychain here to book.`)}>
+                        <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: '#B65CFF', borderWidth: 2, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="radio" size={15} color="#FFFFFF" />
+                        </View>
                     </Marker>
                 ))}
-
+                {shops.map(shop => (
+                    <ShopPin key={`shop-${shop.id}`} shop={shop} selected={shop.id === selectedShopId} onPress={openShop} />
+                ))}
                 {savedPlaces.map((place) => (
                     <Marker
                         key={`saved-${place.id}`}
@@ -855,350 +835,219 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             navigation.navigate('RideConfirmation', {
                                 pickup: { latitude: currentLat, longitude: currentLng },
-                                destination: { latitude: place.lat, longitude: place.lng, address: place.address || place.label }
+                                destination: { latitude: place.lat, longitude: place.lng, address: place.address || place.label },
                             });
                         }}
                     >
-                        <View style={s.savedPlacePin}>
-                            <Ionicons name="heart" size={16} color="#EAF3F6" />
+                        <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: m.accent, borderWidth: 2, borderColor: '#FFFFFF' }}>
+                            <Ionicons name={place.label === 'Work' ? 'briefcase' : place.label === 'Home' ? 'home' : 'heart'} size={14} color="#FFFFFF" />
                         </View>
                     </Marker>
                 ))}
             </MapView>
+            <LinearGradient pointerEvents="none" colors={m.mapWash as any} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 180 }} />
 
-            {/* Top bar — absolute over the map */}
-            <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
-                    <View style={s.topBar}>
-                        <Image
-                            source={require('../../assets/logo.png')}
-                            style={s.topBarLogo}
-                            resizeMode="contain"
-                        />
+            {/* Your pickup, centred in the map that is still visible above the sheet */}
+            <Reanimated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }, pickupStyle]}>
+                <View style={{ backgroundColor: m.sheet[1], borderRadius: 14, borderWidth: 2, borderBottomWidth: 4, borderColor: night ? '#3A3049' : '#ECE6F3', paddingHorizontal: 12, paddingVertical: 6, marginBottom: 6 }}>
+                    <Txt variant="label">Your pickup</Txt>
+                </View>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(139,124,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#8B7CFF', borderWidth: 3, borderColor: '#FFFFFF' }} />
+                </View>
+            </Reanimated.View>
 
-                        <View style={s.topBarRight}>
-                            <TouchableOpacity
-                                style={s.iconButton}
-                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    (navigation.navigate as any)('Notifications');
-                                }}
-                                accessibilityLabel="View notifications"
-                                accessibilityRole="button"
-                            >
-                                <Ionicons name="notifications-outline" size={22} color="#EAF3F6" />
-                                {unreadCount > 0 && <View style={s.notificationBadge} />}
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={s.avatarButton}
-                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }}
-                                accessibilityLabel="Open menu"
-                                accessibilityRole="button"
-                            >
-                                {profile?.avatar_url ? (
-                                    <Image source={{ uri: profile.avatar_url }} style={s.avatarImage} />
-                                ) : (
-                                    <View style={s.avatarPlaceholder}>
-                                        <Ionicons name="person" size={18} color={VOICES.rider.accent} />
-                                    </View>
-                                )}
-                            </TouchableOpacity>
+            {/* Top bar: G greets you on the map, so it shows even with the sheet down */}
+            <View style={{ position: 'absolute', top: insets.top + 12, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingLeft: 4, paddingRight: 14, paddingVertical: 4, borderRadius: 24,
+                    backgroundColor: m.sheet[1], borderWidth: 2, borderBottomWidth: 4, borderColor: night ? '#3A3049' : '#ECE6F3', marginRight: SPACE.md }}>
+                    <Image source={require('../../assets/logo.png')} resizeMode="contain" style={{ width: 38, height: 38 }} />
+                    <View style={{ flexShrink: 1, marginLeft: 6 }}>
+                        <Txt variant="headline" numberOfLines={1}>{g.hello}{firstName ? `, ${firstName}` : ''}</Txt>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 7, height: 7, borderRadius: 4, marginRight: 6, backgroundColor: realtimeDrivers.length > 0 ? '#2FB57C' : m.faint }} />
+                            <Txt variant="caption" tone="dim" numberOfLines={1}>{realtimeDrivers.length > 0 ? driverSubText : 'Finding drivers near you'}</Txt>
                         </View>
                     </View>
-                </LiquidGlass>
+                </View>
+                <View>
+                    <IconButton icon="notifications-outline" label="Notifications" tone="filled" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Notifications'); }} />
+                    {unreadCount > 0 && <View pointerEvents="none" style={{ position: 'absolute', top: 8, right: 9, width: 9, height: 9, borderRadius: 5, backgroundColor: '#E5484D', borderWidth: 1.5, borderColor: m.sheet[1] }} />}
+                </View>
             </View>
 
             {!systemStatus.stripe_ready && (
-                <View style={[s.maintenanceBanner, { top: insets.top + 80 }]}>
-                    <Ionicons name="warning" size={16} color="#F59E0B" />
-                    <Text style={s.maintenanceText}>
-                        System Maintenance: Card payments currently unavailable.
-                    </Text>
+                <View style={{ position: 'absolute', top: insets.top + 74, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', padding: SPACE.md, borderRadius: 14, backgroundColor: night ? 'rgba(245,158,11,0.16)' : '#FFF6E5' }}>
+                    <Ionicons name="information-circle" size={16} color="#D97706" />
+                    <Txt variant="caption" style={{ marginLeft: SPACE.sm, flex: 1 }}>Card payments are paused right now. Cash still works.</Txt>
                 </View>
             )}
 
-            <Sidebar
-                visible={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
-                navigation={navigation}
-                user={{
-                    name: profile?.name || 'Rider',
-                    rating: 5.0,
-                    photo_url: profile?.avatar_url ?? undefined,
-                }}
-            />
-
-            {/* AI/vision loading bubble — floats above the sheet peek zone */}
-            {(isAiThinking || visionLoading) && (
-                <Reanimated.View
-                    entering={FadeIn}
-                    exiting={FadeOut}
-                    style={s.aiBubbleContainer}
+            {/* The Where-to sheet: drag it (or tap the handle) between peek, half and full */}
+            {boxH > 0 && (
+                <HomeSheet
+                    available={Math.max(320, boxH - insets.top - 76)}
+                    height={sheetHeight}
+                    onSettled={setSheetH}
+                    top={
+                        <>
+                        <Pressable
+                            accessibilityRole="search" accessibilityLabel="Where to?"
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openDestinationSearch(); }}
+                            onPressIn={searchIn} onPressOut={searchOut}
+                        >
+                            <View style={{ borderRadius: 20, backgroundColor: '#5B4BD6' }}>
+                                <Animated.View style={{ height: 60, borderRadius: 20, overflow: 'hidden', flexDirection: 'row', alignItems: 'center',
+                                    paddingLeft: SPACE.lg, paddingRight: 8, transform: [{ translateY: searchDown }], marginBottom: 5 }}>
+                                    <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
+                                    <Ionicons name="search" size={22} color="#FFFFFF" />
+                                    <Txt variant="headline" tone="onBrand" style={{ flex: 1, marginLeft: SPACE.md, fontSize: 19 }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
+                                    {platformFlags.aiAssistant && (
+                                        <Pressable
+                                            accessibilityRole="button" accessibilityLabel="Ask G by voice"
+                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setVoiceInputText(''); setVoiceModalVisible(true); }}
+                                            hitSlop={6}
+                                            style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}
+                                        >
+                                            <Ionicons name="mic" size={20} color="#FFFFFF" />
+                                        </Pressable>
+                                    )}
+                                    <Pressable
+                                        accessibilityRole="button" accessibilityLabel="Ride with a photo of where you are"
+                                        onPress={handleVisionSighting} hitSlop={6}
+                                        style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Ionicons name="camera" size={20} color="#FFFFFF" />
+                                    </Pressable>
+                                </Animated.View>
+                            </View>
+                        </Pressable>
+                        <ShopCarousel shops={shops} selectedId={selectedShopId} onSelect={selectShop} onOpen={openShop} />
+                        </>
+                    }
                 >
-                    <LiquidGlass tier="panel" voice="rider" style={s.aiBlur}>
-                        <View style={s.aiAvatar}>
-                            <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color={VOICES.rider.accent} />
-                        </View>
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                            {visionLoading ? (
-                                <Text style={s.aiCyan}>Analyzing your sight...</Text>
-                            ) : (
-                                <Text style={s.aiThinking}>AI is thinking...</Text>
+                    {/* Your usual (only when there is a real habit) + saved places */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                        {usual && (
+                            <Chip icon="repeat" label={`Again: ${usual.address.split(',')[0].slice(0, 22)}`} onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                navigation.navigate('RideConfirmation', {
+                                    pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+                                    destination: { latitude: usual.lat, longitude: usual.lng, address: usual.address },
+                                });
+                            }} />
+                        )}
+                        <Chip icon="home" label="Home" onPress={() => handleQuickAction('Home')} />
+                        <Chip icon="briefcase" label="Work" onPress={() => handleQuickAction('Work')} />
+                        <Chip icon="time" label="Recent" onPress={() => handleQuickAction('Recent')} />
+                    </View>
+
+                {/* Fare preview (voice / saved place on its way to booking) */}
+                {(selectedDestinationPreview || isEstimatingFare) && (
+                    <Card style={{ marginTop: SPACE.sm }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 1 }}>
+                                <Txt variant="bodyStrong" numberOfLines={1}>{selectedDestinationPreview?.address || 'Getting your price…'}</Txt>
+                                <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>
+                                    {isEstimatingFare ? 'Getting your price…' : estimatedFare ? `About ${formatTTDDollars(estimatedFare / 100)}` : 'Price not available yet'}
+                                </Txt>
+                            </View>
+                            {!isEstimatingFare && (
+                                <Pressable accessibilityRole="button" accessibilityLabel="Clear" onPress={clearFarePreview} hitSlop={8}>
+                                    <Ionicons name="close-circle" size={22} color={m.faint} />
+                                </Pressable>
                             )}
                         </View>
-                    </LiquidGlass>
-                </Reanimated.View>
-            )}
-
-            {/* Vision FAB — floats above the sheet peek zone */}
-            <TouchableOpacity
-                style={s.visionFab}
-                onPress={handleVisionSighting}
-                activeOpacity={0.7}
-                accessibilityLabel="Open AI vision scanner"
-                accessibilityRole="button"
-            >
-                <View style={s.visionGlass}>
-                    <Ionicons name="scan-outline" size={28} color={VOICES.rider.accent} />
-                    <Text style={s.visionText}>VISION</Text>
-                </View>
-            </TouchableOpacity>
-
-            {/* Bottom sheet */}
-            <Reanimated.View
-                style={[
-                    s.sheet,
-                    animatedSheet,
-                    { paddingBottom: insets.bottom + 20 },
-                    width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 },
-                ]}
-            >
-                {/* Liquid Glass substrate — floats the booking sheet over the live map */}
-                <LiquidGlass
-                    tier="panel"
-                    voice="rider"
-                    pointerEvents="none"
-                    style={[StyleSheet.absoluteFillObject, s.sheetGlass]}
-                />
-
-                {/* Drag handle — always visible in peek zone */}
-                <View {...panResponder.panHandlers} style={s.handleZone}>
-                    <TouchableOpacity onPress={expandSheet} activeOpacity={0.7} accessibilityLabel="Expand options" accessibilityRole="button">
-                        <View style={s.handleBar} />
-                    </TouchableOpacity>
-                </View>
-
-                <ScrollView
-                    style={s.sheetScroll}
-                    contentContainerStyle={s.sheetContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    scrollEventThrottle={16}
-                >
-                    {/* Greeting + voice row */}
-                    <View style={s.greetRow}>
-                        <Text style={s.greetText} numberOfLines={2}>
-                            {aiGreeting || 'Where to next?'}
-                        </Text>
-                        {/* 'ai_assistant_active' on Platform Control. That switch
-                            used to control nothing at all — an admin could turn the
-                            assistant "off" and the mic stayed right here. */}
-                        {platformFlags.aiAssistant && (
-                            <TouchableOpacity
-                                style={s.micBtn}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                    setVoiceInputText('');
-                                    setVoiceModalVisible(true);
-                                }}
-                                accessibilityLabel="Ask G-Taxi by voice"
-                                accessibilityRole="button"
-                            >
-                                <Ionicons name="mic" size={20} color={VOICES.rider.accent} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {/* Swipeable layer deck — booking + verticals + level meter in one control */}
-                    {isVerticalsLoading ? (
-                        <View style={s.skeletonContainer}>
-                            <Skeleton width="100%" height={144} borderRadius={22} />
-                        </View>
-                    ) : (
-                        <LayerDeck
-                            layers={layers}
-                            onPrimary={handleLayerPrimary}
-                            onActiveChange={(l) => setActiveLayerId(l.id)}
-                        />
-                    )}
-
-                    {/* Ride-only quick places */}
-                    {activeLayerId === 'ride' && (
-                    <View style={s.pills}>
-                        <TouchableOpacity
-                            style={s.pill}
-                            onPress={() => handleQuickAction('Home')}
-                            accessibilityLabel="Ride to saved Home address"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="home-outline" size={18} color={VOICES.rider.accent} />
-                            <Text style={s.pillLabel}>Home</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={s.pill}
-                            onPress={() => handleQuickAction('Work')}
-                            accessibilityLabel="Ride to saved Work address"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="briefcase-outline" size={18} color={VOICES.rider.accent} />
-                            <Text style={s.pillLabel}>Work</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={s.recentPill}
-                            onPress={() => handleQuickAction('Recent')}
-                            accessibilityLabel="View recent rides"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="time-outline" size={22} color={VOICES.rider.accent} />
-                        </TouchableOpacity>
-                    </View>
-                    )}
-
-                    {/* Fare preview */}
-                    {(selectedDestinationPreview || isEstimatingFare) && (
-                        <Reanimated.View entering={FadeIn} exiting={FadeOut} style={s.farePreviewContainer}>
-                            <View style={s.farePreviewBlur}>
-                                <View style={s.farePreviewContent}>
-                                    <View style={s.fareIconContainer}>
-                                        <Ionicons name="wallet-outline" size={20} color={VOICES.rider.accent} />
-                                    </View>
-                                    <View style={s.fareTextContainer}>
-                                        <Text style={s.fareAddress}>
-                                            {selectedDestinationPreview?.address || 'Estimating...'}
-                                        </Text>
-                                        <View style={s.fareRow}>
-                                            {isEstimatingFare ? (
-                                                <Text style={{ color: VOICES.rider.accent, fontWeight: '700' }}>Calculating...</Text>
-                                            ) : estimatedFare ? (
-                                                <>
-                                                    <Text style={s.fareAmount}>
-                                                        {formatTTDDollars(estimatedFare / 100)}
-                                                    </Text>
-                                                    <Text style={s.fareLabel}>estimated</Text>
-                                                </>
-                                            ) : (
-                                                <Text style={{ color: 'rgba(255,255,255,0.6)' }}>Fare unavailable</Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                    {!isEstimatingFare && estimatedFare && (
-                                        <TouchableOpacity
-                                            onPress={clearFarePreview}
-                                            style={s.fareCloseBtn}
-                                            accessibilityLabel="Clear fare estimate"
-                                            accessibilityRole="button"
-                                        >
-                                            <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
-                                        </TouchableOpacity>
-                                    )}
+                        {stopSuggestions.length > 0 && selectedDestinationPreview && (
+                            <View style={{ marginTop: SPACE.md }}>
+                                <Txt variant="overline" tone="faint" style={{ marginBottom: SPACE.sm }}>ADD A STOP ON THE WAY</Txt>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                    {stopSuggestions.map((stop, i) => (
+                                        <Chip key={i} label={stop.name} onPress={() => {
+                                            navigation.navigate('RideConfirmation', {
+                                                destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
+                                                pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+                                                stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng },
+                                            });
+                                            clearFarePreview();
+                                        }} />
+                                    ))}
                                 </View>
                             </View>
-                            {stopSuggestions.length > 0 && selectedDestinationPreview && (
-                                <View style={s.stopSuggestionsStrip}>
-                                    <Text style={s.stopSuggestionsTitle}>Suggested stops</Text>
-                                    <View style={s.stopSuggestionRow}>
-                                        {stopSuggestions.map((stop, i) => (
-                                            <TouchableOpacity
-                                                key={i}
-                                                style={s.stopSuggestionChip}
-                                                accessibilityLabel={`Add stop at ${stop.name}`}
-                                                accessibilityRole="button"
-                                                onPress={() => {
-                                                    navigation.navigate('RideConfirmation', {
-                                                        destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
-                                                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
-                                                        stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng }
-                                                    });
-                                                    clearFarePreview();
-                                                }}
-                                            >
-                                                <Text style={s.stopSuggestionLabel}>{stop.name}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </View>
-                            )}
-                        </Reanimated.View>
-                    )}
+                        )}
+                    </Card>
+                )}
 
-                    {/* Proactive AI suggestion */}
-                    {proactiveAction && (
-                        <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
-                            <LinearGradient
-                                colors={[`${BRAND}30`, `${BRAND}08`]}
-                                style={s.proactiveGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <View style={s.aiIndicator}>
-                                    <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
-                                </View>
-                                <Text style={s.proactiveText}>{proactiveAction}</Text>
-                                <TouchableOpacity
-                                    onPress={() => setProactiveAction(null)}
-                                    accessibilityLabel="Dismiss AI suggestion"
-                                    accessibilityRole="button"
-                                >
-                                    <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
-                                </TouchableOpacity>
-                            </LinearGradient>
-                        </Reanimated.View>
-                    )}
+                {/* G's tip */}
+                {proactiveAction && (
+                    <Pop>
+                        <Card style={{ marginTop: SPACE.sm, flexDirection: 'row', alignItems: 'flex-start' }}>
+                            <Ionicons name="sparkles" size={16} color="#8B7CFF" style={{ marginTop: 2 }} />
+                            <Txt variant="body" style={{ flex: 1, marginHorizontal: SPACE.md }}>{proactiveAction}</Txt>
+                            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss tip" onPress={() => setProactiveAction(null)} hitSlop={8}>
+                                <Ionicons name="close" size={18} color={m.faint} />
+                            </Pressable>
+                        </Card>
+                    </Pop>
+                )}
 
-                    {/* Nearby merchants */}
-                    {nearbyVendors.length > 0 && (
-                        <View style={{ marginTop: 20 }}>
-                            <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
-                                {nearbyVendors.map(v => (
-                                    <TouchableOpacity
-                                        key={v.id}
-                                        activeOpacity={0.88}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
-                                        }}
-                                        accessibilityLabel={`Shop at ${v.name}${v.is_open ? '' : ' (closed)'}`}
-                                        accessibilityRole="button"
-                                        style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                                    >
-                                        <LinearGradient colors={['rgba(109,40,217,0.15)', 'rgba(52,230,236,0.08)']} style={{ padding: 16 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                                                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(109,40,217,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                    <Ionicons name="storefront-outline" size={18} color="#6D28D9" />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
-                                                    <Text style={{ color: (v as any).is_usual ? VOICES.rider.accent : 'rgba(255,255,255,0.45)', fontSize: 11 }}>
-                                                        {(v as any).is_featured ? 'Featured' : (v as any).is_usual ? 'Your usual' : v.is_open ? 'Open' : 'Closed'}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{Math.round(v.distance_meters)} m</Text>
-                                                <Text style={{ color: VOICES.rider.accent, fontSize: 11, fontWeight: '600' }}>~{v.avg_delivery_minutes} min</Text>
-                                            </View>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                {/* Services — bright tiles that bounce */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md, marginHorizontal: -SPACE.xs }}>
+                    {[layers[0], ...otherLayers].map((l, i) => (
+                        <Pop key={l.id} delay={180 + i * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
+                            <KeyTile
+                                title={l.name}
+                                icon={(i === 0 ? 'car-sport' : (l.icon || 'apps').replace('-sharp', '')) as any}
+                                color={SERVICE_COLORS[l.id] || '#8B7CFF'}
+                                onPress={() => handleLayerPrimary(l)}
+                            />
+                        </Pop>
+                    ))}
+                    {lockedLayer && (
+                        <Pop delay={180 + (otherLayers.length + 1) * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
+                            <KeyTile title={lockedLayer.name} icon="lock-closed" locked color={night ? '#4A4058' : '#C9C1D6'} onPress={() => toast(lockedLayer.label || `Keep riding to unlock ${lockedLayer.name}`)} />
+                        </Pop>
+                    )}
+                </View>
+
+                {/* G's line for you (the hello itself is on the map) */}
+                <Pop>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                        <Animated.Image source={require('../../assets/logo.png')} resizeMode="contain"
+                            style={{ width: 92, height: 92, marginLeft: -14, marginRight: -10, transform: [{ translateY: mascotBob }] }} />
+                        <View style={{ flex: 1, marginLeft: SPACE.sm, marginBottom: 6 }}>
+                            <View style={{ backgroundColor: night ? '#2A2238' : '#FFFFFF', borderRadius: 18, borderWidth: 2, borderBottomWidth: 4,
+                                borderColor: night ? '#3A3049' : '#ECE6F3', paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm }}>
+                                <Txt variant="overline" tone="accent">G SAYS</Txt>
+                                <Txt variant="body" numberOfLines={3} style={{ marginTop: 2 }}>
+                                    {isAiThinking || visionLoading
+                                        ? (visionLoading ? 'Looking at your photo…' : 'Thinking…')
+                                        : (aiGreeting && aiGreeting !== 'Where to next?' ? aiGreeting : `Where are we going ${g.when}?`)}
+                                </Txt>
+                            </View>
+                            {/* bubble tail */}
+                            <View style={{ position: 'absolute', left: -6, bottom: 14, width: 14, height: 14, transform: [{ rotate: '45deg' }],
+                                backgroundColor: night ? '#2A2238' : '#FFFFFF', borderLeftWidth: 2, borderBottomWidth: 2, borderColor: night ? '#3A3049' : '#ECE6F3' }} />
                         </View>
-                    )}
-                </ScrollView>
-            </Reanimated.View>
+                    </View>
+                </Pop>
+
+                {/* Trust */}
+                <Pop delay={380}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: RADIUS.card, backgroundColor: night ? 'rgba(47,181,124,0.12)' : '#EAF8F1', borderWidth: 2, borderColor: night ? 'rgba(47,181,124,0.25)' : '#C9EEDB' }}>
+                        <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="shield-checkmark" size={19} color="#FFFFFF" />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                            <Txt variant="headline">You're in safe hands</Txt>
+                            <Txt variant="caption" tone="dim">Verified drivers · G Guardian on call 24/7</Txt>
+                        </View>
+                    </View>
+                </Pop>
+                </HomeSheet>
+            )}
+
+            <ShopActionSheet shop={actionShop} onClose={() => setActionShop(null)} onAction={onShopAction} />
 
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
             <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={async (loc) => {
@@ -1207,164 +1056,82 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 setTimeout(() => {
                     navigation.navigate('RideConfirmation', {
                         destination: { latitude: loc.latitude, longitude: loc.longitude, address: loc.address },
-                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
+                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
                     });
                     clearFarePreview();
                 }, 1500);
             }} />
 
+            {/* Full-screen notices */}
             {systemStatus.config?.maintenance_mode === 'true' && (
-                <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
-                    <View style={[glassSurface(100), s.lockBlur]}>
-                        <View style={s.hudLockRing} />
-                        <Ionicons name="flash" size={64} color={VOICES.rider.accent} />
-                        <Text style={s.lockTitle}>Feature locked</Text>
-                        <Text style={s.lockSubtitle}>
-                            Complete your first ride to unlock this.
-                        </Text>
-                    </View>
-                </View>
+                <Overlay>
+                    <EmptyState icon="construct-outline" title="We'll be right back" body="G 868 is getting a quick update. Please try again in a few minutes." />
+                </Overlay>
+            )}
+            {needsUpdate && (
+                <Overlay>
+                    <EmptyState
+                        icon="cloud-download-outline" title="Update G 868"
+                        body="A newer version is ready. Update the app to keep riding safely."
+                        action={<Button title="Open the store" onPress={() => Linking.openURL(Platform.OS === 'ios' ? 'https://apps.apple.com' : 'market://details?id=com.gtaxi.rider').catch(() => {})} />}
+                    />
+                </Overlay>
             )}
 
-            {systemStatus.config?.min_version_rider && Constants.expoConfig?.version && (
-                (() => {
-                    const current = Constants.expoConfig.version.split('.').map(Number);
-                    const min = systemStatus.config.min_version_rider.split('.').map(Number);
-                    let needsUpdate = false;
-                    for (let i = 0; i < 3; i++) {
-                        if ((current[i] || 0) < (min[i] || 0)) { needsUpdate = true; break; }
-                        if ((current[i] || 0) > (min[i] || 0)) break;
-                    }
-
-                    if (needsUpdate) {
-                        return (
-                            <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
-                                <View style={[glassSurface(100), s.lockBlur]}>
-                                    <Ionicons name="cloud-download" size={64} color={VOICES.rider.accent} />
-                                    <Text style={[s.lockTitle, { color: '#EAF3F6' }]}>Update Required</Text>
-                                    <Text style={s.lockSubtitle}>
-                                        A critical security update is available. Please update your app to continue using G-TAXI.
-                                    </Text>
-                                    <TouchableOpacity style={s.updateBtn} accessibilityLabel="Update the app now" accessibilityRole="button" onPress={() => Alert.alert("Update", "Please check the App Store or Google Play for the latest version.")}>
-                                        <Text style={s.updateBtnText}>Update Now</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        );
-                    }
-                    return null;
-                })()
-            )}
-
-            {showLocationConfirm && (
-                <View style={[StyleSheet.absoluteFill, s.locationConfirmOverlay]}>
-                    <View style={[glassSurface(40), s.locationConfirmBlur, { width: width - 40 }]}>
-                        <View style={s.locationConfirmCard}>
-                            <Ionicons name="location-outline" size={48} color="#F59E0B" style={{ marginBottom: 16 }} />
-                            <Text style={s.locationConfirmTitle}>Your location may not be precise</Text>
-                            <Text style={s.locationConfirmSubtitle}>
-                                GPS accuracy: {Math.round(locationAccuracy || 0)} meters.{'\n'}
-                                Is this pin in the right place?
-                            </Text>
-
-                            <View style={s.miniMapContainer}>
-                                {/* Lite mode (Android): a still map image instead of a second
-                                    live map running under the main one -- lighter on old phones. */}
-                                <MapView
-                                    liteMode
-                                    style={s.miniMap}
-                                    region={{
-                                        latitude: currentLat,
-                                        longitude: currentLng,
-                                        latitudeDelta: 0.005,
-                                        longitudeDelta: 0.005,
-                                    }}
-                                    customMapStyle={DARK_MAP_STYLE}
-                                    scrollEnabled={false}
-                                    zoomEnabled={false}
-                                >
-                                    <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
-                                        <View style={s.accuracyPin}>
-                                            <View style={[s.accuracyRing, { width: Math.min((locationAccuracy || 50), 200), height: Math.min((locationAccuracy || 50), 200) }]} />
-                                            <View style={s.accuracyDot} />
-                                        </View>
-                                    </Marker>
-                                </MapView>
-                            </View>
-
-                            <View style={s.locationConfirmButtons}>
-                                <TouchableOpacity
-                                    style={s.locationConfirmBtnSecondary}
-                                    onPress={() => {
-                                        setShowLocationConfirm(false);
-                                        navigation.navigate('DestinationSearch', {
-                                            currentLocation: { latitude: currentLat, longitude: currentLng },
-                                            editPickupMode: true
-                                        });
-                                    }}
-                                    accessibilityLabel="Move pickup pin manually"
-                                    accessibilityRole="button"
-                                >
-                                    <Text style={s.locationConfirmBtnSecondaryText}>Move the pin</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={s.locationConfirmBtnPrimary}
-                                    onPress={() => {
-                                        setShowLocationConfirm(false);
-                                        navigation.navigate('DestinationSearch', {
-                                            currentLocation: { latitude: currentLat, longitude: currentLng }
-                                        });
-                                    }}
-                                    accessibilityLabel="Confirm pickup location and search destination"
-                                    accessibilityRole="button"
-                                >
-                                    <Text style={s.locationConfirmBtnPrimaryText}>Yes, this is right</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-            )}
-
-            <Modal
-                visible={voiceModalVisible}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setVoiceModalVisible(false)}
-            >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={s.voiceModalOverlay}
-                >
-                    <View style={s.voiceModalCard}>
-                        <View style={s.voiceModalHeader}>
-                            <View style={s.voiceModalAiDot}>
-                                <Ionicons name="mic" size={18} color={VOICES.rider.accent} />
-                            </View>
-                            <Text style={s.voiceModalTitle}>AI Voice Command</Text>
-                        </View>
-                        <Text style={s.voiceModalSubtitle}>
-                            {isRecordingVoice ? 'Listening — tap the mic to send' : 'Tap the mic to speak, or type below'}
-                        </Text>
-                        <TouchableOpacity
-                            style={[s.voiceMicBtn, isRecordingVoice && s.voiceMicBtnActive]}
-                            onPress={isRecordingVoice ? stopVoiceRecordingAndSend : startVoiceRecording}
-                            activeOpacity={0.85}
-                            accessibilityLabel={isRecordingVoice ? 'Stop recording and send' : 'Start voice recording'}
-                            accessibilityRole="button"
-                        >
-                            <LinearGradient
-                                colors={isRecordingVoice ? ['#EF4444', '#EF4444CC'] : [BRAND, `${BRAND}CC`]}
-                                style={s.voiceMicGradient}
+            {/* Pickup accuracy check */}
+            <Modal visible={showLocationConfirm} transparent animationType="fade" onRequestClose={() => setShowLocationConfirm(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                        <Txt variant="title">Is your pickup right?</Txt>
+                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>
+                            Your phone's location is only accurate to about {Math.round(locationAccuracy || 0)} metres. Check the pin before you book.
+                        </Txt>
+                        <View style={{ height: 160, borderRadius: RADIUS.card, overflow: 'hidden', marginVertical: SPACE.lg }}>
+                            <MapView
+                                liteMode
+                                style={{ flex: 1 }}
+                                region={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.005, longitudeDelta: 0.005 }}
+                                customMapStyle={night ? DARK_MAP_STYLE : []}
+                                scrollEnabled={false}
+                                zoomEnabled={false}
                             >
-                                <Ionicons name={isRecordingVoice ? 'stop' : 'mic'} size={28} color="#EAF3F6" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        <TextInput
-                            style={s.voiceModalInput}
-                            placeholder="e.g. Take me to Port of Spain"
-                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                <Marker coordinate={{ latitude: currentLat, longitude: currentLng }} />
+                            </MapView>
+                        </View>
+                        <Button title="Yes, this is right" onPress={() => {
+                            setShowLocationConfirm(false);
+                            navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } });
+                        }} />
+                        <Button title="Move the pin" variant="ghost" style={{ marginTop: SPACE.md }} onPress={() => {
+                            setShowLocationConfirm(false);
+                            navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng }, editPickupMode: true });
+                        }} />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Ask G (voice or typed) */}
+            <Modal visible={voiceModalVisible} transparent animationType="slide" onRequestClose={() => setVoiceModalVisible(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm, alignItems: 'center' }}>
+                        <Txt variant="title">Ask G</Txt>
+                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs, textAlign: 'center' }}>
+                            {isRecordingVoice ? 'Listening. Tap again to send.' : 'Tap the mic and say where you want to go, or type it.'}
+                        </Txt>
+                        <Pressable
+                            accessibilityRole="button" accessibilityLabel={isRecordingVoice ? 'Stop and send' : 'Start speaking'}
+                            onPress={isRecordingVoice ? stopVoiceRecordingAndSend : startVoiceRecording}
+                            style={{ marginVertical: SPACE.xl }}
+                        >
+                            {isRecordingVoice ? (
+                                <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Ionicons name="stop" size={30} color="#FFFFFF" />
+                                </View>
+                            ) : <BrandBadge icon="mic" size={76} round />}
+                        </Pressable>
+                        <Field
+                            style={{ alignSelf: 'stretch' }}
+                            placeholder="e.g. Take me to Trincity Mall"
                             value={voiceInputText}
                             onChangeText={setVoiceInputText}
                             autoCapitalize="sentences"
@@ -1375,35 +1142,13 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 if (text) handleVoiceComplete(text);
                             }}
                         />
-                        <View style={s.voiceModalButtons}>
-                            <TouchableOpacity
-                                style={s.voiceModalCancel}
-                                onPress={() => setVoiceModalVisible(false)}
-                                accessibilityLabel="Cancel voice command"
-                                accessibilityRole="button"
-                            >
-                                <Text style={s.voiceModalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={s.voiceModalSend}
-                                onPress={() => {
-                                    const text = voiceInputText.trim();
-                                    setVoiceModalVisible(false);
-                                    if (text) handleVoiceComplete(text);
-                                }}
-                                accessibilityLabel="Send voice command"
-                                accessibilityRole="button"
-                            >
-                                <LinearGradient
-                                    colors={[BRAND, `${BRAND}CC`]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={s.voiceModalSendGradient}
-                                >
-                                    <Ionicons name="send" size={16} color="#EAF3F6" />
-                                    <Text style={s.voiceModalSendText}>Send</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignSelf: 'stretch', gap: SPACE.md }}>
+                            <Button title="Cancel" variant="secondary" style={{ flex: 1 }} onPress={() => setVoiceModalVisible(false)} />
+                            <Button title="Send" icon="send" style={{ flex: 1 }} onPress={() => {
+                                const text = voiceInputText.trim();
+                                setVoiceModalVisible(false);
+                                if (text) handleVoiceComplete(text);
+                            }} />
                         </View>
                     </View>
                 </KeyboardAvoidingView>
@@ -1412,841 +1157,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     );
 }
 
-const Z = {
-    topBar: 10,
-    sheet: 20,
-    lockOverlay: 30,
-    locationConfirm: 40,
-};
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-
-    carMarker: {
-        width: 44,
-        height: 44,
-        shadowColor: VOICES.rider.accent,
-        shadowRadius: 12,
-        shadowOpacity: 0.8,
-        shadowOffset: { width: 0, height: 0 },
-    },
-    savedPlacePin: {
-        backgroundColor: BRAND,
-        borderRadius: 20,
-        padding: 8,
-        borderWidth: 2,
-        borderColor: BRAND,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    topBarContainer: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        zIndex: Z.topBar,
-    },
-    topBarBlur: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    topBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    topBarLogo: {
-        width: 48,
-        height: 48,
-    },
-    topBarRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.1),
-    },
-    notificationBadge: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: VOICES.rider.accent,
-    },
-    avatarButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.1),
-        overflow: 'hidden',
-    },
-    avatarImage: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-    },
-    avatarPlaceholder: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: `${BRAND}26`,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    maintenanceBanner: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        backgroundColor: 'rgba(255, 243, 205, 0.95)',
-        padding: 12,
-        borderRadius: 14,
-        flexDirection: 'row',
-        alignItems: 'center',
-        zIndex: 90,
-    },
-    maintenanceText: {
-        marginLeft: 8,
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#856404',
-    },
-
-    // Bottom sheet
-    sheet: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: '100%',
-        zIndex: Z.sheet,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        ...elevationGlow(12),
-    },
-    sheetGlass: {
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 0,
-    },
-    handleZone: {
-        alignItems: 'center',
-        paddingTop: 12,
-        paddingBottom: 8,
-    },
-    handleBar: {
-        width: 40,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-    },
-    sheetScroll: {
-        flex: 1,
-    },
-    sheetContent: {
-        paddingHorizontal: 20,
-        paddingTop: 4,
-        paddingBottom: 40,
-        gap: 16,
-    },
-
-    // AI loading bubble
-    aiBubbleContainer: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        bottom: 248,
-        zIndex: Z.topBar,
-    },
-    aiBlur: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-        borderRadius: 20,
-    },
-    aiAvatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: `${BRAND}26`,
-    },
-    aiThinking: {
-        color: 'rgba(255,255,255,0.6)',
-    },
-    aiCyan: {
-        color: VOICES.rider.accent,
-    },
-
-    // Vision FAB
-    visionFab: {
-        position: 'absolute',
-        right: 20,
-        bottom: 248,
-        zIndex: Z.topBar,
-    },
-    visionGlass: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 20,
-        ...ghostBorder(0.4),
-        backgroundColor: 'rgba(5, 5, 5, 0.8)',
-    },
-    visionText: {
-        marginLeft: 8,
-        fontSize: 13,
-        fontWeight: '700',
-        color: VOICES.rider.accent,
-        letterSpacing: 0.5,
-    },
-
-    // Greeting + voice row
-    greetRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    greetText: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#EAF3F6',
-        lineHeight: 20,
-    },
-    micBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: `${BRAND}1F`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.25),
-    },
-
-    // Driver presence trust caption
-    driverPresence: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: 2,
-    },
-    driverPresenceDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#10B981',
-    },
-    driverPresenceText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: 'rgba(242,245,248,0.7)',
-    },
-    driverPresenceEta: {
-        color: VOICES.rider.accent,
-        fontWeight: '700',
-    },
-
-    // Pills
-    pills: {
-        flexDirection: 'row',
-        gap: 10,
-        alignItems: 'center',
-    },
-    pill: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        height: 48,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 14,
-        paddingHorizontal: 16,
-        ...ghostBorder(0.08),
-    },
-    pillLabel: {
-        marginLeft: 8,
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#EAF3F6',
-    },
-    recentPill: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.08),
-    },
-
-    // Proactive AI HUD
-    proactiveHud: {
-        // no extra margin — gap in sheetContent handles spacing
-    },
-    proactiveGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-        borderRadius: 16,
-        ...ghostBorder(0.3),
-    },
-    proactiveText: {
-        flex: 1,
-        marginLeft: 10,
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#EAF3F6',
-    },
-    aiIndicator: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: 'rgba(0,0,0,0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    // Skeletons
-    skeletonContainer: {
-        // no extra margin
-    },
-    skeletonGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-
-    // Service bento
-    serviceBentoBox: {
-        gap: 12,
-    },
-    heroCard: {
-        width: '100%',
-        height: 120,
-        borderRadius: 24,
-        overflow: 'hidden',
-        ...elevationGlow(),
-    },
-    heroCardGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-    },
-    heroCardIconWrap: {
-        width: 64,
-        height: 64,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    heroCardContent: {
-        flex: 1,
-        marginLeft: 16,
-    },
-    heroCardTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        letterSpacing: -0.5,
-    },
-    heroCardSub: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: 'rgba(255,255,255,0.5)',
-        marginTop: 4,
-    },
-    heroTag: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: VOICES.rider.accent,
-    },
-    heroTagText: {
-        fontSize: 12,
-        fontWeight: '800',
-        color: SURFACE.base,
-        letterSpacing: 0.5,
-    },
-    serviceGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    gridCard: {
-        width: '48%',
-        height: 130,
-        borderRadius: 20,
-        overflow: 'hidden',
-        ...elevationGlow(),
-    },
-    gridCardGradient: {
-        flex: 1,
-        padding: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 20,
-    },
-    gridCardIconWrap: {
-        width: 52,
-        height: 52,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 10,
-    },
-    gridCardTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#EAF3F6',
-        textAlign: 'center',
-    },
-    gridCardSub: {
-        fontSize: 11,
-        fontWeight: '500',
-        color: VOICES.rider.textMuted,
-        marginTop: 2,
-        textAlign: 'center',
-    },
-    gridCardPlaceholder: {
-        width: '48%',
-        height: 0,
-    },
-
-    escapeHeroCard: {
-        width: '100%',
-        height: 64,
-        borderRadius: 20,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(203,214,222,0.3)',
-        ...elevationGlow(),
-    },
-    escapeHeroGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-    },
-    escapeHeroLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    escapeHeroIconWrap: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: 'rgba(203,214,222,0.15)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(203,214,222,0.25)',
-    },
-    escapeHeroTitle: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#CBD6DE',
-        letterSpacing: 0.2,
-    },
-    escapeHeroSub: {
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.5)',
-        marginTop: 1,
-    },
-    escapeHeroRight: {
-        alignItems: 'flex-end',
-    },
-    escapeHeroFrom: {
-        fontSize: 10,
-        color: 'rgba(203,214,222,0.6)',
-        fontWeight: '500',
-    },
-    escapeHeroPrice: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#CBD6DE',
-        lineHeight: 22,
-    },
-    escapeHeroCurrency: {
-        fontSize: 10,
-        color: 'rgba(203,214,222,0.7)',
-        fontWeight: '600',
-    },
-
-    nextUnlockBanner: {
-        backgroundColor: `${BRAND}0D`,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: `${BRAND}1F`,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-    },
-    nextUnlockRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 8,
-    },
-    nextUnlockLabel: {
-        color: 'rgba(255,255,255,0.65)',
-        fontSize: 12,
-        fontWeight: '600',
-        flex: 1,
-    },
-    nextUnlockTrack: {
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        borderRadius: 2,
-        overflow: 'hidden',
-        marginBottom: 6,
-    },
-    nextUnlockFill: {
-        height: 4,
-        backgroundColor: BRAND,
-        borderRadius: 2,
-    },
-    nextUnlockCount: {
-        color: `${BRAND}99`,
-        fontSize: 10,
-        fontWeight: '700',
-        textAlign: 'right',
-    },
-
-    // Fare preview
-    farePreviewContainer: {
-        borderRadius: 16,
-        overflow: 'hidden',
-    },
-    farePreviewBlur: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        backgroundColor: `${BRAND}14`,
-        ...ghostBorder(0.3),
-    },
-    farePreviewContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-    },
-    fareIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: `${BRAND}26`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    fareTextContainer: { flex: 1 },
-    fareAddress: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
-    },
-    fareRow: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        marginTop: 2,
-    },
-    fareAmount: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#EAF3F6',
-    },
-    fareLabel: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
-        marginLeft: 6,
-    },
-    fareCloseBtn: { padding: 4 },
-    stopSuggestionsStrip: {
-        paddingHorizontal: 14,
-        paddingBottom: 14,
-    },
-    stopSuggestionsTitle: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.5)',
-        marginBottom: 8,
-        fontWeight: '600',
-    },
-    stopSuggestionRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    stopSuggestionChip: {
-        backgroundColor: `${BRAND}1F`,
-        borderRadius: 20,
-        paddingVertical: 6,
-        paddingHorizontal: 14,
-        borderWidth: 1,
-        borderColor: `${BRAND}33`,
-    },
-    stopSuggestionLabel: {
-        color: '#EAF3F6',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-
-    // Voice modal
-    voiceModalOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
-    voiceModalCard: {
-        backgroundColor: SURFACE.base,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        padding: 28,
-        paddingBottom: 40,
-        ...ghostBorder(),
-    },
-    voiceModalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-        gap: 10,
-    },
-    voiceModalAiDot: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: `${BRAND}1F`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.3),
-    },
-    voiceModalTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#EAF3F6',
-    },
-    voiceModalSubtitle: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
-        marginBottom: 20,
-        marginLeft: 46,
-    },
-    voiceMicBtn: {
-        alignSelf: 'center',
-        borderRadius: 40,
-        overflow: 'hidden',
-        marginBottom: 20,
-        ...elevationGlow(10),
-    },
-    voiceMicBtnActive: {
-        transform: [{ scale: 1.08 }],
-    },
-    voiceMicGradient: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    voiceModalInput: {
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        ...ghostBorder(0.4),
-        borderRadius: 16,
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        fontSize: 16,
-        color: '#EAF3F6',
-        marginBottom: 20,
-    },
-    voiceModalButtons: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    voiceModalCancel: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.1),
-    },
-    voiceModalCancelText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: 'rgba(255,255,255,0.6)',
-    },
-    voiceModalSend: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        overflow: 'hidden',
-    },
-    voiceModalSendGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-    },
-    voiceModalSendText: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#EAF3F6',
-    },
-
-    // Lock overlays
-    lockOverlay: {
-        zIndex: Z.lockOverlay,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(5, 7, 10, 0.6)',
-    },
-    lockBlur: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        borderRadius: 24,
-        backgroundColor: 'rgba(13, 11, 30, 0.95)',
-    },
-    hudLockRing: {
-        position: 'absolute',
-        width: 250,
-        height: 250,
-        borderRadius: 125,
-        borderWidth: 2,
-        borderColor: `${BRAND}33`,
-    },
-    lockTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: VOICES.rider.accent,
-        textAlign: 'center',
-        letterSpacing: 2,
-    },
-    lockSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.6)',
-        marginTop: 12,
-        textAlign: 'center',
-        paddingHorizontal: 40,
-        lineHeight: 20,
-    },
-    updateBtn: {
-        marginTop: 32,
-        backgroundColor: VOICES.rider.accent,
-        paddingHorizontal: 40,
-        paddingVertical: 16,
-        borderRadius: 16,
-    },
-    updateBtnText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#EAF3F6',
-    },
-
-    // Location confirm overlay
-    locationConfirmOverlay: {
-        zIndex: Z.locationConfirm,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.7)',
-    },
-    locationConfirmBlur: {
-        borderRadius: 24,
-        overflow: 'hidden',
-    },
-    locationConfirmCard: {
-        padding: 24,
-        alignItems: 'center',
-    },
-    locationConfirmTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    locationConfirmSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.6)',
-        marginBottom: 20,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    miniMapContainer: {
-        width: '100%',
-        height: 180,
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 20,
-        borderWidth: 2,
-        borderColor: '#F59E0B',
-    },
-    miniMap: {
-        width: '100%',
-        height: '100%',
-    },
-    accuracyPin: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    accuracyRing: {
-        borderRadius: 1000,
-        borderWidth: 2,
-        borderColor: 'rgba(245, 158, 11, 0.4)',
-        position: 'absolute',
-    },
-    accuracyDot: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#F59E0B',
-        borderWidth: 3,
-        borderColor: '#EAF3F6',
-    },
-    locationConfirmButtons: {
-        width: '100%',
-        gap: 12,
-    },
-    locationConfirmBtnPrimary: {
-        backgroundColor: VOICES.rider.accent,
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 16,
-        alignItems: 'center',
-    },
-    locationConfirmBtnPrimaryText: {
-        color: SURFACE.base,
-        fontSize: 16,
-        fontWeight: '800',
-    },
-    locationConfirmBtnSecondary: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 16,
-        alignItems: 'center',
-        ...ghostBorder(),
-    },
-    locationConfirmBtnSecondaryText: {
-        color: '#EAF3F6',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-});
+function Overlay({ children }: { children: React.ReactNode }) {
+    const m = useTheme();
+    return <View style={[StyleSheet.absoluteFill, { backgroundColor: m.page, justifyContent: 'center', zIndex: 50 }]}>{children}</View>;
+}

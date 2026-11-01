@@ -17,6 +17,6 @@ describe('AISettingsScreen', () => {
   it('renders without crashing', async () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const { findByText } = render(<AISettingsScreen navigation={navigation as any} />);
-    expect(await findByText(/AI & Safety/i)).toBeTruthy();
+    expect(await findByText(/G assistant and safety/i)).toBeTruthy();
   });
 });

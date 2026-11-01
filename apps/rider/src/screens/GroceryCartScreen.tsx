@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import {
-    View, Text, TouchableOpacity, StyleSheet,
-    FlatList, Alert, Switch, Dimensions,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -12,10 +8,8 @@ import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#22D3EE';
+import { toast } from '../components/Toast';
+import { Button, Card, Chip, Divider, EmptyState, Screen, Section, SPACE, Toggle, Txt, useTheme } from '../ui/kit';
 
 interface CartItem {
     product: { id: string; name: string; price_cents: number };
@@ -33,7 +27,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
     const [cart, setCart] = useState<CartItem[]>(initialCart || []);
     const [deliverToRide, setDeliverToRide] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
+    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet' | 'card'>('cash');
     // Delivery is priced by distance from the store to the drop-off, so it
     // is only known once the delivery location is (quoted at checkout).
     const [quotedFee, setQuotedFee] = useState<number | null>(null);
@@ -79,7 +73,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
     const handleCheckout = async () => {
         if (cart.length === 0) return;
-        if (!user?.id) { Alert.alert('Error', 'Please log in.'); return; }
+        if (!user?.id) { toast('Please sign in again.', 'error'); return; }
 
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setLoading(true);
@@ -87,6 +81,20 @@ export function GroceryCartScreen({ navigation, route }: any) {
         try {
             const location = await resolveDeliveryLocation();
             if (!location) { setLoading(false); return; }
+
+            // place_order builds the order from the server-side cart
+            // (cart_items). The app used to keep the cart only on the phone,
+            // so every order failed with "Cart is empty". Send it first.
+            const clear = await supabase.functions.invoke('grocery', {
+                body: { action: 'manage_cart', cart_action: 'clear', merchant_id: merchant.id },
+            });
+            if (clear.error || clear.data?.success === false) throw new Error(clear.data?.error || 'Could not prepare your cart');
+            for (const item of cart) {
+                const { data: added, error: addErr } = await supabase.functions.invoke('grocery', {
+                    body: { action: 'manage_cart', cart_action: 'add', merchant_id: merchant.id, product_id: item.product.id, quantity: item.quantity },
+                });
+                if (addErr || added?.success === false) throw new Error(added?.error || `${item.product.name} is no longer available`);
+            }
 
             const { data: quoteResult, error: quoteErr } = await supabase.functions.invoke('grocery', {
                 body: {
@@ -184,228 +192,91 @@ export function GroceryCartScreen({ navigation, route }: any) {
                     console.warn('[Checkout] match_order_delivery:', matchErr.message);
                 }
 
-                if (paymentMethod === 'cash') {
-                    Alert.alert(
-                        'Cash on delivery',
-                        `Pay $${(orderTotal / 100).toFixed(2)} TTD to the driver upon delivery.\nOrder ID: ${order.order_id.slice(0, 8).toUpperCase()}`,
-                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
-                    );
-                } else {
-                    Alert.alert(
-                        'Order placed',
-                        `Your order from ${merchant.name} has been paid from your wallet.\nAmount: $${(orderTotal / 100).toFixed(2)} TTD`,
-                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
-                    );
-                }
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                toast(paymentMethod === 'cash'
+                    ? `Order placed. Pay $${(orderTotal / 100).toFixed(2)} TTD in cash when it arrives.`
+                    : `Order placed and paid from your G-Coin: $${(orderTotal / 100).toFixed(2)} TTD.`, 'success');
+                navigation.replace('GroceryOrderStatus', { orderId: order.order_id });
             }
         } catch (err: any) {
-            Alert.alert('Order failed', err.message || 'Please try again.');
+            toast(err.message || 'Your order did not go through. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const renderItem = ({ item }: { item: CartItem }) => (
-        <View style={s.itemRow}>
-            <View style={s.itemLeft}>
-                <Text style={s.itemName}>{item.product.name}</Text>
-                <Text style={s.itemPrice}>${(item.product.price_cents / 100).toFixed(2)} TTD each</Text>
-            </View>
-            <View style={s.itemQty}>
-                <TouchableOpacity style={s.qtyBtn} onPress={() => updateQty(item.product.id, -1)}>
-                    <Text style={s.qtyBtnText}>−</Text>
-                </TouchableOpacity>
-                <Text style={s.qtyVal}>{item.quantity}</Text>
-                <TouchableOpacity style={[s.qtyBtn, s.qtyBtnAdd]} onPress={() => updateQty(item.product.id, 1)}>
-                    <Text style={s.qtyBtnText}>+</Text>
-                </TouchableOpacity>
-            </View>
-            <Text style={s.lineTotal}>${((item.product.price_cents * item.quantity) / 100).toFixed(2)}</Text>
+    const m = useTheme();
+    const qtyBtn = (icon: any, label: string, onPress: () => void) => (
+        <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6}
+            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={icon} size={16} color={m.ink} />
+        </Pressable>
+    );
+    const line = (label: string, value: string, strong?: boolean) => (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+            <Txt variant={strong ? 'headline' : 'body'} tone={strong ? 'ink' : 'dim'}>{label}</Txt>
+            <Txt variant={strong ? 'headline' : 'bodyStrong'}>{value}</Txt>
         </View>
     );
 
     return (
-        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
-            <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>Your cart</Text>
-                <View style={{ width: 38 }} />
-            </View>
-
-            <FlatList<CartItem>
-                data={cart}
-                keyExtractor={i => i.product.id}
-                renderItem={renderItem}
-                style={s.list}
-                contentContainerStyle={s.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={s.emptyBox}>
-                        <Ionicons name="cart-outline" size={56} color="rgba(255,255,255,0.4)" style={s.emptyIcon} />
-                        <Text style={s.emptyText}>Your cart is empty</Text>
-                    </View>
-                }
-                ListFooterComponent={cart.length > 0 ? (
-                    <View style={s.footer}>
-                        {activeRide && (
-                            <View style={s.deliveryCard}>
-                                <View style={s.deliveryRow}>
-                                    <View style={s.deliveryInfo}>
-                                        <Text style={s.deliveryTitle}>Deliver to my taxi</Text>
-                                        <Text style={s.deliverySub}>Driver will receive the order</Text>
-                                    </View>
-                                    <Switch
-                                        value={deliverToRide}
-                                        onValueChange={v => { Haptics.selectionAsync(); setDeliverToRide(v); }}
-                                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: VOICES.rider.accent }}
-                                        thumbColor={deliverToRide ? CYAN : '#888'}
-                                    />
+        <Screen
+            title="Your cart"
+            onBack={() => navigation.goBack()}
+            footer={cart.length > 0 ? (
+                <Button
+                    title={quotedFee != null ? `Place order · $${(total / 100).toFixed(2)}` : 'See delivery fee and order'}
+                    icon={paymentMethod === 'cash' ? 'cash-outline' : 'wallet-outline'}
+                    loading={loading}
+                    onPress={handleCheckout}
+                />
+            ) : undefined}
+        >
+            {cart.length === 0 ? (
+                <EmptyState icon="cart-outline" title="Your cart is empty" body="Add something from the shop to get started."
+                    action={<Button title="Back to the shop" variant="secondary" onPress={() => navigation.goBack()} />} />
+            ) : (
+                <>
+                    <Txt variant="body" tone="dim" style={{ marginTop: SPACE.sm }}>From {merchant?.name}</Txt>
+                    <Card style={{ marginTop: SPACE.md, paddingVertical: SPACE.xs }}>
+                        {cart.map((item, i) => (
+                            <View key={item.product.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: SPACE.md, borderBottomWidth: i === cart.length - 1 ? 0 : 1, borderBottomColor: m.chipBorder }}>
+                                <View style={{ flex: 1, marginRight: SPACE.sm }}>
+                                    <Txt variant="bodyStrong" numberOfLines={2}>{item.product.name}</Txt>
+                                    <Txt variant="caption" tone="dim">${((item.product.price_cents * item.quantity) / 100).toFixed(2)}</Txt>
                                 </View>
-                                {!deliverToRide && (
-                                    <Text style={s.deliveryNote}>Independent courier delivery</Text>
-                                )}
+                                {qtyBtn(item.quantity === 1 ? 'trash-outline' : 'remove', item.quantity === 1 ? 'Remove' : 'Fewer', () => updateQty(item.product.id, -1))}
+                                <Txt variant="bodyStrong" style={{ width: 36, textAlign: 'center' }}>{item.quantity}</Txt>
+                                {qtyBtn('add', 'More', () => updateQty(item.product.id, 1))}
                             </View>
-                        )}
+                        ))}
+                    </Card>
 
-                        <View style={s.paymentCard}>
-                            <Text style={s.paymentLabel}>Payment Method</Text>
-                            <View style={s.paymentOptions}>
-                                <TouchableOpacity
-                                    style={[s.paymentOption, paymentMethod === 'card' && s.paymentOptionActive]}
-                                    onPress={() => { Haptics.selectionAsync(); setPaymentMethod('card'); }}
-                                >
-                                    <Ionicons name="card-outline" size={18} color={paymentMethod === 'card' ? CYAN : '#AAA'} />
-                                    <Text style={[s.paymentOptionText, paymentMethod === 'card' && s.paymentOptionTextActive]}>Card</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[s.paymentOption, paymentMethod === 'cash' && s.paymentOptionActive]}
-                                    onPress={() => { Haptics.selectionAsync(); setPaymentMethod('cash'); }}
-                                >
-                                    <Ionicons name="cash-outline" size={18} color={paymentMethod === 'cash' ? CYAN : '#AAA'} />
-                                    <Text style={[s.paymentOptionText, paymentMethod === 'cash' && s.paymentOptionTextActive]}>Cash</Text>
-                                </TouchableOpacity>
+                    {activeRide && (
+                        <Card style={{ marginTop: SPACE.md, flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 1, marginRight: SPACE.md }}>
+                                <Txt variant="bodyStrong">Deliver to my ride</Txt>
+                                <Txt variant="caption" tone="dim">{deliverToRide ? 'Goes to where your ride is dropping you off' : 'A courier brings it to where you are now'}</Txt>
                             </View>
+                            <Toggle label="Deliver to my ride" value={deliverToRide} onChange={(v) => { Haptics.selectionAsync(); setDeliverToRide(v); }} />
+                        </Card>
+                    )}
+
+                    <Section title="Pay with">
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                            <Chip icon="cash-outline" label="Cash on delivery" selected={paymentMethod === 'cash'} onPress={() => { Haptics.selectionAsync(); setPaymentMethod('cash'); }} />
+                            <Chip icon="wallet-outline" label="G-Coin" selected={paymentMethod === 'wallet'} onPress={() => { Haptics.selectionAsync(); setPaymentMethod('wallet'); }} />
                         </View>
+                    </Section>
 
-                        <View style={s.priceCard}>
-                            <View style={s.priceRow}>
-                                <Text style={s.priceLabel}>Subtotal</Text>
-                                <Text style={s.priceVal}>${(subTotal / 100).toFixed(2)} TTD</Text>
-                            </View>
-                            <View style={s.priceRow}>
-                                <Text style={s.priceLabel}>Delivery fee</Text>
-                                <Text style={s.priceVal}>{quotedFee != null ? `$${(quotedFee / 100).toFixed(2)} TTD` : 'By distance, shown at checkout'}</Text>
-                            </View>
-                            <View style={[s.priceRow, s.totalRow]}>
-                                <Text style={s.totalLabel}>Total</Text>
-                                <Text style={s.totalVal}>{quotedFee != null ? `$${(total / 100).toFixed(2)} TTD` : `$${(subTotal / 100).toFixed(2)} TTD + delivery`}</Text>
-                            </View>
-                        </View>
-                    </View>
-                ) : null}
-            />
-
-            {cart.length > 0 && (
-                <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 16 }]}>
-                    {/* The full bar is the actionable element -- solid cyan,
-                        not a cyan-to-purple gradient. Purple is reserved for
-                        AI-originated surfaces; this is a plain checkout CTA. */}
-                    <TouchableOpacity style={s.ctaButton} onPress={handleCheckout} disabled={loading} activeOpacity={0.88}>
-                        <Ionicons name={paymentMethod === 'card' ? "card-outline" : "cash-outline"} size={22} color="#07070F" style={{ marginRight: 8 }} />
-                        <Text style={s.ctaText}>{loading ? 'Placing order...' : paymentMethod === 'card' ? (quotedFee != null ? `Pay with card · $${(total / 100).toFixed(2)} TTD` : 'Pay with card') : (quotedFee != null ? `Cash on delivery · $${(total / 100).toFixed(2)} TTD` : 'Cash on delivery')}</Text>
-                    </TouchableOpacity>
-                </View>
+                    <Card style={{ marginTop: SPACE.md }}>
+                        {line('Items', `$${(subTotal / 100).toFixed(2)}`)}
+                        {line('Delivery', quotedFee != null ? `$${(quotedFee / 100).toFixed(2)}` : 'Shown before you order')}
+                        <Divider style={{ marginVertical: SPACE.sm }} />
+                        {line('Total', quotedFee != null ? `$${(total / 100).toFixed(2)} TTD` : `$${(subTotal / 100).toFixed(2)} + delivery`, true)}
+                    </Card>
+                </>
             )}
-        </LinearGradient>
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    container: { flex: 1 },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingBottom: 12,
-    },
-    backBtn: {
-        width: 38, height: 38, borderRadius: 19,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
-    list: { flex: 1 },
-    listContent: { padding: 20, gap: 12, paddingBottom: 120 },
-    itemRow: {
-        flexDirection: 'row', alignItems: 'center',
-        borderRadius: 18, overflow: 'hidden',
-        ...ghostBorder(0.1),
-        padding: 14, gap: 10,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    itemLeft: { flex: 1 },
-    itemName: { fontSize: 14, fontWeight: '600', color: '#EAF3F6' },
-    itemPrice: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-    itemQty: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    qtyBtn: {
-        width: 28, height: 28, borderRadius: 14,
-        backgroundColor: `${VOICES.rider.accent}33`,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    qtyBtnAdd: { backgroundColor: VOICES.rider.accent },
-    qtyBtnText: { fontSize: 18, color: '#EAF3F6', fontWeight: '700', lineHeight: 22 },
-    qtyVal: { fontSize: 16, fontWeight: '700', color: '#EAF3F6', minWidth: 20, textAlign: 'center' },
-    // Prices/totals stay off cyan -- cyan signals tappability, not money.
-    lineTotal: { fontSize: 14, fontWeight: '700', color: '#EAF3F6', minWidth: 60, textAlign: 'right' },
-    footer: { gap: 12, marginTop: 8 },
-    deliveryCard: {
-        borderRadius: 20, overflow: 'hidden', padding: 16,
-        ...ghostBorder(0.2),
-        backgroundColor: 'rgba(0,255,255,0.04)',
-    },
-    deliveryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    deliveryInfo: {},
-    deliveryTitle: { fontSize: 15, fontWeight: '700', color: '#EAF3F6' },
-    deliverySub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-    deliveryNote: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 8 },
-    paymentCard: {
-        borderRadius: 20, overflow: 'hidden', padding: 18,
-        ...ghostBorder(0.1),
-        backgroundColor: 'rgba(255,255,255,0.04)', gap: 12,
-    },
-    paymentLabel: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 },
-    paymentOptions: { flexDirection: 'row', gap: 10 },
-    paymentOption: {
-        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        paddingVertical: 14, borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    },
-    paymentOptionActive: { borderColor: CYAN, backgroundColor: `${CYAN}15` },
-    paymentOptionText: { fontSize: 15, fontWeight: '700', color: '#AAA' },
-    paymentOptionTextActive: { color: '#EAF3F6' },
-    priceCard: {
-        borderRadius: 20, overflow: 'hidden', padding: 18,
-        ...ghostBorder(0.1),
-        backgroundColor: 'rgba(255,255,255,0.04)', gap: 10,
-    },
-    priceRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    priceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
-    priceVal: { fontSize: 14, color: '#EAF3F6', fontWeight: '600' },
-    totalRow: {
-        paddingTop: 12, borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)', marginTop: 4,
-    },
-    totalLabel: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
-    totalVal: { fontSize: 20, fontWeight: '900', color: '#EAF3F6' },
-    emptyBox: { alignItems: 'center', paddingTop: 80 },
-    emptyIcon: { marginBottom: 16 },
-    emptyText: { fontSize: 18, color: 'rgba(255,255,255,0.4)', fontWeight: '600' },
-    ctaContainer: { paddingHorizontal: 20, paddingTop: 12 },
-    ctaButton: {
-        borderRadius: 20, overflow: 'hidden',
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        paddingVertical: 18, paddingHorizontal: 24,
-        backgroundColor: CYAN,
-    },
-    ctaText: { fontSize: 16, fontWeight: '800', color: '#07070F' },
-});

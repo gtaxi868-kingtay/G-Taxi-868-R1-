@@ -1,19 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, StyleSheet, TouchableOpacity, ScrollView,
-    ActivityIndicator, Alert, useWindowDimensions, Platform
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
-import { Txt } from '@/design-system/primitives';
-import { GlassCard } from '@gtaxi/design-system/native';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { toast } from '../components/Toast';
+import { Button, Card, Chip, EmptyState, Loading, Row, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 import { formatTTDDollars } from '../utils/currency';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-
-const CYAN = '#06B6D4';
 
 interface Service {
     id: string;
@@ -24,9 +15,7 @@ interface Service {
 }
 
 export function ServiceBookingScreen({ navigation, route }: any) {
-    const { width } = useWindowDimensions();
     const { merchantId, merchantName, pickup, destination } = route.params;
-    const insets = useSafeAreaInsets();
 
     const [loading, setLoading] = useState(true);
     const [services, setServices] = useState<Service[]>([]);
@@ -48,7 +37,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
             if (error) throw error;
             setServices(data || []);
         } catch (err) {
-            Alert.alert("Error", "Could not load services for this merchant.");
+            toast('Could not load this shop\'s services.', 'error');
         } finally {
             setLoading(false);
         }
@@ -56,7 +45,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
 
     const handleConfirmBooking = async () => {
         if (!selectedService || !selectedTime) {
-            Alert.alert("Missing Info", "Please select a service and a time.");
+            toast('Choose a service and a time first.', 'error');
             return;
         }
 
@@ -79,13 +68,10 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                 throw new Error(error?.message || data?.error || "Booking failed");
             }
 
-            Alert.alert(
-                "Booking Sent!",
-                "Your request has been sent to " + merchantName + ". We'll notify you once they approve the ride.",
-                [{ text: "OK", onPress: () => navigation.navigate('Home') }]
-            );
+            toast(`Request sent to ${merchantName}. We'll let you know when they confirm.`, 'success');
+            navigation.navigate('Home', { screen: 'Map' });
         } catch (err: any) {
-            Alert.alert("Booking Failed", err.message);
+            toast(err.message || 'Booking did not go through.', 'error');
         } finally {
             setSubmitting(false);
         }
@@ -99,103 +85,46 @@ export function ServiceBookingScreen({ navigation, route }: any) {
         timeSlots.push(slot);
     }
 
+    const m = useTheme();
     return (
-        <View style={s.root}>
-            <LinearGradient colors={['#0A0A1F', '#12122A']} style={StyleSheet.absoluteFillObject} />
-            
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="close" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <View>
-                    <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">{merchantName}</Txt>
-                    <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Select Service & Time</Txt>
-                </View>
-                <View style={{ width: 44 }} />
-            </View>
-
-            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}>
-                <Txt variant="caption" weight="heavy" color={VOICES.rider.accent} style={s.sectionTitle}>SELECT SERVICE</Txt>
-                {loading ? (
-                    <ActivityIndicator color={VOICES.rider.accent} style={{ marginTop: 20 }} />
+        <Screen
+            title={merchantName || 'Book'}
+            onBack={() => navigation.goBack()}
+            footer={<Button title="Request appointment" loading={submitting} disabled={!selectedService || !selectedTime} onPress={handleConfirmBooking} />}
+        >
+            <Section title="Choose a service" style={{ marginTop: SPACE.sm }}>
+                {loading ? <Loading /> : services.length === 0 ? (
+                    <EmptyState icon="calendar-outline" title="No services listed yet" body="This shop has not added bookable services." />
                 ) : (
-                    services.map(svc => (
-                        <TouchableOpacity 
-                            key={svc.id} 
-                            style={[s.serviceCard, selectedService?.id === svc.id && s.activeCard]}
-                            onPress={() => setSelectedService(svc)}
-                        >
-                            <View style={{ flex: 1 }}>
-                                <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">{svc.name}</Txt>
-                                <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">{svc.duration_minutes} mins</Txt>
-                            </View>
-                            <Txt variant="bodyReg" weight="heavy" color={CYAN}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
-                        </TouchableOpacity>
-                    ))
+                    <Card style={{ paddingVertical: SPACE.xs }}>
+                        {services.map((svc, i) => {
+                            const on = selectedService?.id === svc.id;
+                            return (
+                                <Row key={svc.id} title={svc.name} subtitle={`${svc.duration_minutes} min · ${formatTTDDollars(svc.price_cents / 100)}`}
+                                    last={i === services.length - 1} onPress={() => setSelectedService(svc)}
+                                    right={<Ionicons name={on ? 'radio-button-on' : 'radio-button-off'} size={22} color={on ? m.accent : m.faint} />} />
+                            );
+                        })}
+                    </Card>
                 )}
+            </Section>
 
-                <Txt variant="caption" weight="heavy" color={VOICES.rider.accent} style={[s.sectionTitle, { marginTop: 32 }]}>SELECT TIME</Txt>
-                <View style={s.timeGrid}>
-                    {timeSlots.map(time => {
-                        const isSelected = selectedTime?.getTime() === time.getTime();
-                        return (
-                            <TouchableOpacity 
-                                key={time.getTime()} 
-                                style={[s.timeSlot, { width: (width - 60) / 3 }, isSelected && s.activeTime]}
-                                onPress={() => setSelectedTime(time)}
-                            >
-                                <Txt variant="bodyReg" weight="heavy" color={isSelected ? "#EAF3F6" : "rgba(255,255,255,0.6)"}>
-                                    {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </Txt>
-                            </TouchableOpacity>
-                        );
-                    })}
+            <Section title="Choose a time">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    {timeSlots.map(time => (
+                        <Chip key={time.getTime()} label={time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            selected={selectedTime?.getTime() === time.getTime()} onPress={() => setSelectedTime(time)} />
+                    ))}
                 </View>
+            </Section>
 
-                <GlassCard variant="rider" style={s.logisticsCard}>
-                    <Ionicons name="car" size={24} color={VOICES.rider.accent} />
-                    <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">Include G-Taxi Ride</Txt>
-                        <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Coordinated pickup 15m before</Txt>
-                    </View>
-                    <Ionicons name="checkbox" size={24} color={CYAN} />
-                </GlassCard>
-            </ScrollView>
-
-            <View style={[s.footer, { paddingBottom: insets.bottom + 20 }]}>
-                <TouchableOpacity 
-                    style={[s.submitBtn, (!selectedService || !selectedTime || submitting) && { opacity: 0.5 }]}
-                    onPress={handleConfirmBooking}
-                    disabled={!selectedService || !selectedTime || submitting}
-                >
-                    <LinearGradient 
-                        colors={[VOICES.rider.accent, VOICES.rider.accentDark]} 
-                        style={s.btnGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                    >
-                        {submitting ? <ActivityIndicator color="#EAF3F6" /> : (
-                            <Txt variant="bodyReg" weight="heavy" color="#EAF3F6">REQUEST APPOINTMENT</Txt>
-                        )}
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-        </View>
+            <Card style={{ marginTop: SPACE.lg, flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="car-outline" size={22} color={m.accent} />
+                <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                    <Txt variant="bodyStrong">A G ride is included</Txt>
+                    <Txt variant="caption" tone="dim">We'll pick you up in time for your appointment.</Txt>
+                </View>
+            </Card>
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { letterSpacing: 1, marginBottom: 16 },
-    serviceCard: { flexDirection: 'row', alignItems: 'center', padding: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, marginBottom: 12, ...ghostBorder(0.05) },
-    activeCard: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(124, 58, 237, 0.1)' },
-    timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    timeSlot: { paddingVertical: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, ...ghostBorder(0.05) },
-    activeTime: { backgroundColor: VOICES.rider.accent, borderColor: CYAN },
-    logisticsCard: { marginTop: 32, flexDirection: 'row', alignItems: 'center', padding: 20 },
-    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(10,10,31,0.8)' },
-    submitBtn: { height: 60, borderRadius: 999, overflow: 'hidden' },
-    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});

@@ -1,5 +1,7 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { Modal, View, Pressable, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, GUTTER, RADIUS, Row, SPACE, Txt, useTheme } from '../ui/kit';
 
 // Why is the rider cancelling? Fixed list only: the codes must match
 // analytics_events.cancel_reason and cancel_ride's CANCEL_REASON_CODES.
@@ -26,38 +28,22 @@ export function CancelReasonSheet({
     onPick: (code: string | null) => void;
     onClose: () => void;
 }) {
+    const m = useTheme();
+    const insets = useSafeAreaInsets();
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={st.backdrop} onPress={onClose} accessibilityLabel="Keep my ride" />
-            <View style={st.sheet}>
-                <Text style={st.title}>Why are you cancelling?</Text>
-                <Text style={st.sub}>Optional. It helps us fix what went wrong.</Text>
-                {CANCEL_REASONS.map((r) => (
-                    <TouchableOpacity key={r.code} style={st.row} onPress={() => onPick(r.code)}
-                        accessibilityRole="button" accessibilityLabel={r.label}>
-                        <Text style={st.rowText}>{r.label}</Text>
-                    </TouchableOpacity>
-                ))}
-                <TouchableOpacity style={st.skip} onPress={() => onPick(null)} accessibilityRole="button">
-                    <Text style={st.skipText}>Skip and cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={st.keep} onPress={onClose} accessibilityRole="button">
-                    <Text style={st.keepText}>Keep my ride</Text>
-                </TouchableOpacity>
+            <Pressable style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)' }} onPress={onClose} accessibilityLabel="Keep my ride" />
+            <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, paddingHorizontal: GUTTER, paddingTop: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm, maxHeight: '85%' }}>
+                <Txt variant="title">Why are you cancelling?</Txt>
+                <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs, marginBottom: SPACE.sm }}>Optional. It helps us fix what went wrong.</Txt>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    {CANCEL_REASONS.map((r, i) => (
+                        <Row key={r.code} title={r.label} onPress={() => onPick(r.code)} last={i === CANCEL_REASONS.length - 1} />
+                    ))}
+                </ScrollView>
+                <Button title="Keep my ride" style={{ marginTop: SPACE.lg }} onPress={onClose} />
+                <Button title="Skip and cancel" variant="ghost" style={{ marginTop: SPACE.md }} onPress={() => onPick(null)} />
             </View>
         </Modal>
     );
 }
-
-const st = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
-    sheet: { backgroundColor: '#0B0B12', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-    title: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-    sub: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 4, marginBottom: 12 },
-    row: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.12)' },
-    rowText: { color: '#FFFFFF', fontSize: 15 },
-    skip: { paddingVertical: 14, alignItems: 'center', marginTop: 6 },
-    skipText: { color: '#FF8A8A', fontSize: 15, fontWeight: '700' },
-    keep: { paddingVertical: 12, alignItems: 'center' },
-    keepText: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
-});

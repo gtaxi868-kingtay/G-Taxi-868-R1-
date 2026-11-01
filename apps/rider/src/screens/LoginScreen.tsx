@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authErrorMessage } from '../utils/authMessages';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -24,14 +25,14 @@ export function LoginScreen({ navigation }: any) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            const { data, error: signInError } = await signIn(email, password);
+            const { data, error: signInError } = await signIn(email.trim().toLowerCase(), password);
             if (signInError) {
-                setError(signInError.message);
+                setError(authErrorMessage(signInError, 'signin'));
             } else if (data?.user && !data.user.email_confirmed_at) {
-                setError('EMAIL NOT VERIFIED — Check your inbox or verify via WhatsApp below');
+                setError('Confirm your email first. Check your inbox, or verify via WhatsApp below.');
             }
         } catch (err: any) {
-            setError(err.message || 'Login failed');
+            setError(authErrorMessage(err, 'signin'));
         } finally {
             setLoading(false);
         }

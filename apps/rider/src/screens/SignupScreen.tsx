@@ -1,33 +1,24 @@
 import React, { useState } from 'react';
-import {
-    View, StyleSheet, TextInput, TouchableOpacity,
-    KeyboardAvoidingView, Platform, ActivityIndicator,
-    useWindowDimensions, ScrollView, Alert, Image, Text, Linking
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { authErrorMessage } from '../utils/authMessages';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { RainLogin, CrystalInput, CrystalButton } from '@gtaxi/design-system/native';
+import { VOICES } from '@gtaxi/design-system';
 import * as Haptics from 'expo-haptics';
-import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { RIDER_CONSENT_DOCUMENTS, LEGAL_DOC_URLS } from '@g868/shared/legal';
 import { savePendingSignup } from '@g868/shared/pendingSignup';
 import { linkDriverCode, savePendingDriverCode } from '../services/driverCode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { toast } from '../components/Toast';
+import { Checkbox, MoodProvider, Toggle } from '../ui/kit';
 
 export function SignupScreen({ navigation }: any) {
-    const { width, height } = useWindowDimensions();
-    const { signUp } = useAuth();
-    const insets = useSafeAreaInsets();
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [focusedField, setFocusedField] = useState<string | null>(null);
+    const [showMore, setShowMore] = useState(false);
+    const [checkEmail, setCheckEmail] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -194,493 +185,98 @@ export function SignupScreen({ navigation }: any) {
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            if (referralWarning) toast(referralWarning, 'error');
             if (!authData.session) {
-                Alert.alert(
-                    'Check Your Email',
-                    'We sent a verification link. Please check your inbox.\n\nDidn\'t get the code?',
-                    [
-                        { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(formData.email)) },
-                        { text: 'Sign In', onPress: () => navigation.navigate('Login') }
-                    ]
-                );
+                // Email confirmation is on: show the "check your email" step.
+                setCheckEmail(true);
             } else {
-                Alert.alert(
-                    'Account Created',
-                    'Your account is ready. Please log in with your email and password.',
-                    [{ text: 'Sign In', onPress: () => navigation.navigate('Login') }]
-                );
-            }
-            if (referralWarning) {
-                // Shown after the main success alert, non-blocking —
-                // signup already succeeded, this only clarifies the code
-                // itself didn't apply.
-                Alert.alert('Referral Code', referralWarning);
+                // Signed in already: the app moves to Home on its own.
+                toast('Welcome to G 868', 'success');
             }
 
         } catch (err: any) {
 
-            setError(err.message || 'Signup failed. Please try again.');
+            setError(authErrorMessage(err, 'signup'));
         } finally {
             setLoading(false);
         }
     };
 
+    const set = (k: keyof typeof formData) => (v: any) => setFormData({ ...formData, [k]: v });
+    const link = (text: string, accent: string, onPress: () => void) => (
+        <Pressable accessibilityRole="button" onPress={() => { Haptics.selectionAsync(); onPress(); }} style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <Text style={st.linkText}>{text} <Text style={st.linkAccent}>{accent}</Text></Text>
+        </Pressable>
+    );
+
+    // Same crystal "rain" scaffold as the sign-in screen, so signing in,
+    // signing up and resetting a password feel like one place.
+    if (checkEmail) {
+        return (
+            <View style={{ flex: 1 }}>
+                <StatusBar style="light" />
+                <RainLogin voice="rider" logoSource={require('../../assets/logo.png')}
+                    footer={link('Prefer WhatsApp?', 'Verify there', () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(formData.email)))}>
+                    <Text style={st.title}>Check your email</Text>
+                    <Text style={st.body}>We sent a link to {formData.email.trim()}. Tap it to confirm your account, then sign in.</Text>
+                    <CrystalButton title="Back to sign in" voice="rider" onPress={() => navigation.navigate('Login')} />
+                </RainLogin>
+            </View>
+        );
+    }
+
     return (
-        <View style={s.root}>
+        <View style={{ flex: 1 }}>
             <StatusBar style="light" />
+            <RainLogin
+                voice="rider"
+                logoSource={require('../../assets/logo.png')}
+                footer={link('Already have an account?', 'Sign in', () => navigation.navigate('Login'))}
+            >
+                {error ? <Text style={st.error}>{error}</Text> : null}
 
-            {/* Deep Gradient Background */}
-            <LinearGradient
-                colors={['#1A0533', '#0D1B4B']}
-                style={StyleSheet.absoluteFillObject}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-            />
+                <CrystalInput label="Full name" voice="rider" placeholder="Your name" value={formData.name} onChangeText={set('name')} autoCapitalize="words" />
+                <CrystalInput label="Email" voice="rider" placeholder="you@email.com" value={formData.email} onChangeText={set('email')} keyboardType="email-address" />
+                <CrystalInput label="Phone (optional)" voice="rider" placeholder="+1 868 000 0000" value={formData.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
+                <CrystalInput label="Password" voice="rider" placeholder="At least 6 characters" value={formData.password} onChangeText={set('password')} secureTextEntry />
 
-            <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} style={s.container}>
-                <ScrollView
-                    contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}
-                    showsVerticalScrollIndicator={false}
-                >
+                {showMore ? (
+                    <>
+                        <CrystalInput label="Referral or driver code" voice="rider" placeholder="e.g. ABC123" value={formData.referralCode} onChangeText={set('referralCode')} autoCapitalize="characters" />
+                        <CrystalInput label="G-Lead code" voice="rider" placeholder="Code from your G-Lead" value={formData.commanderCode} onChangeText={set('commanderCode')} autoCapitalize="characters" />
+                    </>
+                ) : link('Have a referral or driver code?', 'Add it', () => setShowMore(true))}
 
-                    {/* Back Button */}
-                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color={'#EAF3F6'} />
-                    </TouchableOpacity>
-
-                    {/* Logo Section */}
-                    <View style={s.logoSection}>
-                        <View style={s.logoGlow} />
-                        <Image 
-                            source={require('../../assets/logo.png')} 
-                            style={s.logo}
-                            resizeMode="contain"
-                        />
-                    </View>
-
-                    {/* Progress Indicator */}
-                    <View style={s.progressContainer}>
-                        <Text style={s.progressText}>Step 1 of 1</Text>
-                        <View style={s.progressBar}>
-                            <View style={s.progressFill} />
+                <MoodProvider force="night">
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
+                        <View style={{ flex: 1, marginRight: 12 }}>
+                            <Text style={st.rowTitle}>G assistant</Text>
+                            <Text style={st.rowSub}>Helpful safety and comfort tips during rides</Text>
                         </View>
+                        <Toggle color={VOICES.rider.accent} label="G assistant" value={formData.aiEnabled} onChange={(v) => { set('aiEnabled')(v); Haptics.selectionAsync(); }} />
                     </View>
+                    <Checkbox color={VOICES.rider.accent} checked={formData.termsAccepted} onChange={(v) => { set('termsAccepted')(v); Haptics.selectionAsync(); }}>
+                        <Text style={st.rowSub}>
+                            I accept the{' '}
+                            <Text style={st.linkAccent} onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}>Terms of Service</Text>
+                            {' '}and{' '}
+                            <Text style={st.linkAccent} onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}>Privacy Policy</Text>
+                        </Text>
+                    </Checkbox>
+                </MoodProvider>
 
-                    {/* Glass Card - Signup Form */}
-                    <View style={s.cardContainer}>
-                        <BlurView intensity={20} tint="dark" style={s.blurBacking}>
-                            <View style={s.glassCard}>
-                                <Reanimated.View entering={FadeIn.springify().mass(ANIMATION.spring.mass).stiffness(ANIMATION.spring.stiffness).damping(ANIMATION.spring.damping)} style={s.form}>
-                                    {error ? (
-                                        <Text style={s.errorText}>{error}</Text>
-                                    ) : null}
-
-                                    <Input
-                                        label="FULL NAME"
-                                        placeholder="John Doe"
-                                        value={formData.name}
-                                        onChange={(v: string) => setFormData({ ...formData, name: v })}
-                                        isFocused={focusedField === 'name'}
-                                        onFocus={() => setFocusedField('name')}
-                                        onBlur={() => setFocusedField(null)}
-                                    />
-                                    <Input
-                                        label="EMAIL"
-                                        placeholder="you@email.com"
-                                        value={formData.email}
-                                        onChange={(v: string) => setFormData({ ...formData, email: v })}
-                                        keyboardType="email-address"
-                                        isFocused={focusedField === 'email'}
-                                        onFocus={() => setFocusedField('email')}
-                                        onBlur={() => setFocusedField(null)}
-                                    />
-                                    <Input
-                                        label="PHONE"
-                                        placeholder="+1 868 000 0000"
-                                        value={formData.phone}
-                                        onChange={(v: string) => setFormData({ ...formData, phone: v })}
-                                        keyboardType="phone-pad"
-                                        isFocused={focusedField === 'phone'}
-                                        onFocus={() => setFocusedField('phone')}
-                                        onBlur={() => setFocusedField(null)}
-                                        optional
-                                    />
-                                    <Input
-                                        label="PASSWORD"
-                                        placeholder="••••••••"
-                                        value={formData.password}
-                                        onChange={(v: string) => setFormData({ ...formData, password: v })}
-                                        secure
-                                        isFocused={focusedField === 'password'}
-                                        onFocus={() => setFocusedField('password')}
-                                        onBlur={() => setFocusedField(null)}
-                                    />
-                                    <Input
-                                        label="REFERRAL CODE"
-                                        placeholder="e.g. ABC123"
-                                        value={formData.referralCode}
-                                        onChange={(v: string) => setFormData({ ...formData, referralCode: v })}
-                                        isFocused={focusedField === 'referral'}
-                                        onFocus={() => setFocusedField('referral')}
-                                        onBlur={() => setFocusedField(null)}
-                                        optional
-                                    />
-                                    <Input
-                                        label="G-LEAD CODE"
-                                        placeholder="Got a code from your G-Lead?"
-                                        value={formData.commanderCode}
-                                        onChange={(v: string) => setFormData({ ...formData, commanderCode: v })}
-                                        isFocused={focusedField === 'commander'}
-                                        onFocus={() => setFocusedField('commander')}
-                                        onBlur={() => setFocusedField(null)}
-                                        optional
-                                    />
-
-                                    {/* AI Toggle */}
-                                    <View style={s.aiOptIn}>
-                                        <View style={{ flex: 1 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Ionicons name="star" size={16} color={VOICES.rider.accent} />
-                                                <Text style={s.aiLabel}>AI assistant</Text>
-                                            </View>
-                                            <Text style={s.aiSubtext}>Enable proactive safety & comfort</Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            style={[s.toggle, { backgroundColor: formData.aiEnabled ? VOICES.rider.accent : 'rgba(255,255,255,0.1)' }]}
-                                            onPress={() => {
-                                                setFormData({ ...formData, aiEnabled: !formData.aiEnabled });
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            }}
-                                        >
-                                            <View style={[s.toggleDot, { marginLeft: formData.aiEnabled ? 22 : 2 }]} />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {/* Terms Checkbox */}
-                                    <TouchableOpacity
-                                        style={s.termsRow}
-                                        onPress={() => {
-                                            setFormData({ ...formData, termsAccepted: !formData.termsAccepted });
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        }}
-                                    >
-                                        <View style={[s.checkbox, formData.termsAccepted && s.checkboxActive]}>
-                                            {formData.termsAccepted && <Ionicons name="checkmark" size={14} color="#EAF3F6" />}
-                                        </View>
-                                        <Text style={s.termsText}>
-                                            I accept the{' '}
-                                            <Text style={s.termsLink} onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}>
-                                                Terms of Service
-                                            </Text>
-                                            {' '}and{' '}
-                                            <Text style={s.termsLink} onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}>
-                                                Privacy Policy
-                                            </Text>
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                    {/* CTA Button */}
-                                    <TouchableOpacity 
-                                        style={s.primaryButton}
-                                        onPress={handleSignup}
-                                        disabled={loading}
-                                        activeOpacity={0.8}
-                                    >
-                                        <LinearGradient
-                                            colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
-                                            style={s.buttonGradient}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                        >
-                                            {loading ? (
-                                                <ActivityIndicator color={SURFACE.base} />
-                                            ) : (
-                                                <Text style={s.primaryButtonText}>Create Account</Text>
-                                            )}
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-
-                                    {/* Login Link */}
-                                    <TouchableOpacity
-                                        style={s.loginLink}
-                                        onPress={() => navigation.navigate('Login')}
-                                    >
-                                        <Text style={s.loginLinkText}>
-                                            Already have an account? <Text style={s.loginLinkAccent}>Sign In</Text>
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                </Reanimated.View>
-                            </View>
-                        </BlurView>
-                    </View>
-
-                </ScrollView>
-            </KeyboardAvoidingView>
+                <CrystalButton title="Create account" voice="rider" onPress={handleSignup} loading={loading} />
+            </RainLogin>
         </View>
     );
 }
 
-function Input({ label, placeholder, value, onChange, secure, keyboardType, isFocused, onFocus, onBlur, optional }: any) {
-    return (
-        <View style={s.inputWrapper}>
-            <View style={s.labelRow}>
-                <Text style={s.label}>{label}</Text>
-                {optional && <Text style={s.optionalTag}>(Optional)</Text>}
-            </View>
-            <View style={[s.inputContainer, isFocused && s.inputContainerFocused]}>
-                <TextInput
-                    style={s.input}
-                    placeholder={placeholder}
-                    placeholderTextColor={'rgba(255,255,255,0.6)'}
-                    value={value}
-                    onChangeText={onChange}
-                    secureTextEntry={secure}
-                    keyboardType={keyboardType}
-                    autoCapitalize="none"
-                    onFocus={onFocus}
-                    onBlur={onBlur}
-                />
-            </View>
-        </View>
-    );
-}
-
-const s = StyleSheet.create({
-    root: { 
-        flex: 1, 
-        backgroundColor: SURFACE.base 
-    },
-    container: { 
-        flex: 1 
-    },
-    scroll: { 
-        paddingHorizontal: 28 
-    },
-    backBtn: {
-        width: 44, 
-        height: 44, 
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        marginBottom: 16,
-        alignSelf: 'flex-start',
-        ...ghostBorder(0.15),
-    },
-
-    // Logo Section
-    logoSection: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-        height: 140,
-    },
-    logoGlow: {
-        position: 'absolute',
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: VOICES.rider.accent + '26',
-    },
-    logo: {
-        width: 140,
-        height: 140,
-    },
-
-    // Progress Indicator
-    progressContainer: {
-        marginBottom: 24,
-        alignItems: 'center',
-    },
-    progressText: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 12,
-        fontWeight: '700',
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-        marginBottom: 8,
-    },
-    progressBar: {
-        width: 120,
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    progressFill: {
-        width: '100%',
-        height: '100%',
-        backgroundColor: VOICES.rider.accent,
-    },
-
-    // Card Container
-    cardContainer: {
-        width: '100%',
-        marginBottom: 24,
-    },
-    blurBacking: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    glassCard: {
-        backgroundColor: SURFACE.containerLow,
-        borderRadius: 20,
-        padding: 24,
-        gap: 16,
-        ...ghostBorder(0.15),
-    },
-
-    form: { 
-        gap: 16 
-    },
-    errorText: {
-        color: '#FF4D4D',
-        fontSize: 14,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginBottom: 4,
-    },
-
-    // Input
-    inputWrapper: {
-        gap: 6,
-    },
-    labelRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    label: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 12,
-        fontWeight: '700',
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-    },
-    optionalTag: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 10,
-        fontWeight: '600',
-    },
-    inputContainer: {
-        height: 54,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderRadius: 14,
-        paddingHorizontal: 16,
-        justifyContent: 'center',
-    },
-    inputContainerFocused: {
-        ...elevationGlow(),
-    },
-    input: {
-        color: '#EAF3F6',
-        fontSize: 15,
-        fontWeight: '500',
-    },
-
-    // AI Toggle
-    aiOptIn: {
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 16,
-        backgroundColor: 'rgba(255,255,255,0.03)', 
-        borderRadius: 16,
-        marginTop: 4,
-        ...ghostBorder(0.15),
-    },
-    aiLabel: {
-        color: '#EAF3F6',
-        fontSize: 13,
-        fontWeight: '700',
-        marginLeft: 8,
-        letterSpacing: 0.5,
-    },
-    aiSubtext: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 12,
-        fontWeight: '500',
-        marginTop: 2,
-        marginLeft: 24,
-    },
-    toggle: { 
-        width: 44, 
-        height: 24, 
-        borderRadius: 12, 
-        justifyContent: 'center', 
-        padding: 2 
-    },
-    toggleDot: { 
-        width: 20, 
-        height: 20, 
-        borderRadius: 10, 
-        backgroundColor: '#EAF3F6',
-        ...elevationGlow(),
-    },
-
-    // Cyan Button
-    primaryButton: {
-        height: 56,
-        borderRadius: 16,
-        overflow: 'hidden',
-        ...elevationGlow(10),
-        marginTop: 4,
-    },
-    buttonGradient: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    primaryButtonText: {
-        color: SURFACE.base,
-        fontSize: 17,
-        fontWeight: '800',
-        letterSpacing: 0.5,
-    },
-
-    // Login Link
-    loginLink: { 
-        marginTop: 8,
-        alignItems: 'center',
-    },
-    loginLinkText: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    loginLinkAccent: {
-        color: VOICES.rider.accent,
-        fontWeight: '700',
-    },
-
-    // Terms Checkbox
-    termsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingVertical: 4,
-    },
-    checkbox: {
-        width: 24,
-        height: 24,
-        borderRadius: 6,
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.6)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    checkboxActive: {
-        backgroundColor: VOICES.rider.accent,
-        borderColor: VOICES.rider.accent,
-    },
-    termsText: {
-        flex: 1,
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 13,
-        fontWeight: '500',
-    },
-    termsLink: {
-        color: VOICES.rider.accent,
-        fontWeight: '700',
-    },
+const st = StyleSheet.create({
+    title: { color: '#EAF3F6', fontSize: 22, fontWeight: '800', textAlign: 'center' },
+    body: { color: 'rgba(234,243,246,0.7)', fontSize: 15, lineHeight: 21, textAlign: 'center', marginBottom: 8 },
+    error: { color: '#FF6B6B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    linkText: { color: 'rgba(234,243,246,0.55)', fontSize: 14, fontWeight: '500' },
+    linkAccent: { color: VOICES.rider.accent, fontWeight: '700' },
+    rowTitle: { color: '#EAF3F6', fontSize: 15, fontWeight: '700' },
+    rowSub: { color: 'rgba(234,243,246,0.6)', fontSize: 13, lineHeight: 18 },
 });

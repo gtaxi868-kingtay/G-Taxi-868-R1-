@@ -1,38 +1,17 @@
 import React, { useState } from 'react';
-import {
-    View, StyleSheet, TouchableOpacity, TextInput,
-    Alert, KeyboardAvoidingView, Platform, Image,
-    ScrollView, ActivityIndicator, useWindowDimensions
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Pressable, Image, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { Txt } from '@/design-system/primitives';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
 import { decode } from 'base64-arraybuffer';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    border: 'rgba(255,255,255,0.15)',
-    purple: VOICES.rider.accent,
-    purpleLight: CYAN,
-    white: '#EAF3F6',
-    muted: 'rgba(255,255,255,0.7)',
-};
+import { toast } from '../components/Toast';
+import { BRAND_GRADIENT, Button, Field, Screen, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function EditProfileScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
     const { profile, refreshProfile, user } = useAuth();
-    const insets = useSafeAreaInsets();
 
     const [fullName, setFullName] = useState(profile?.full_name || '');
     const [phone, setPhone] = useState(profile?.phone_number || '');
@@ -66,7 +45,7 @@ export function EditProfileScreen({ navigation }: any) {
                 setAvatarUrl(publicUrl);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (error: any) {
-                Alert.alert('Upload Error', error.message);
+                toast('Photo upload failed: ' + error.message, 'error');
             } finally {
                 setUploading(false);
             }
@@ -84,104 +63,36 @@ export function EditProfileScreen({ navigation }: any) {
             .eq('id', user.id);
 
         if (error) {
-            Alert.alert('Error', error.message);
+            toast('Could not save: ' + error.message, 'error');
         } else {
             await refreshProfile();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            toast('Profile saved', 'success');
             navigation.goBack();
         }
         setSaving(false);
     };
 
+    const m = useTheme();
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-
-            <View style={[s.header, { marginTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Edit Profile</Txt>
-            </View>
-
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={s.scroll}>
-
-                    <TouchableOpacity style={s.photoGroup} onPress={pickImage} disabled={uploading}>
-                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.avatarBorder}>
-                            <View style={s.avatarInner}>
-                                {avatarUrl ? (
-                                    <Image source={{ uri: avatarUrl }} style={s.image} />
-                                ) : (
-                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6">{fullName.charAt(0) || '?'}</Txt>
-                                )}
-                                {uploading && <View style={s.overlay}><ActivityIndicator color="#EAF3F6" /></View>}
-                            </View>
+        <Screen title="Edit profile" onBack={() => navigation.goBack()} footer={<Button title="Save changes" onPress={handleSave} loading={saving} />}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Change photo" onPress={pickImage} disabled={uploading} style={{ alignItems: 'center', marginTop: SPACE.sm, marginBottom: SPACE.xl }}>
+                <View style={{ width: 96, height: 96, borderRadius: 48, overflow: 'hidden' }}>
+                    {avatarUrl ? (
+                        <Image source={{ uri: avatarUrl }} style={{ width: 96, height: 96 }} />
+                    ) : (
+                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <Txt variant="hero" tone="onBrand">{fullName.charAt(0).toUpperCase() || 'G'}</Txt>
                         </LinearGradient>
-                        <Txt variant="caption" weight="heavy" color={R.purpleLight} style={{ marginTop: 16 }}>CHANGE PHOTO</Txt>
-                    </TouchableOpacity>
+                    )}
+                    {uploading && <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color="#FFFFFF" /></View>}
+                </View>
+                <Txt variant="bodyStrong" tone="accent" style={{ marginTop: SPACE.md }}>Change photo</Txt>
+            </Pressable>
 
-                    <View style={s.form}>
-                        <View style={s.inputWrapper}>
-                            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>FULL NAME</Txt>
-                            <TextInput
-                                style={s.input}
-                                value={fullName}
-                                onChangeText={setFullName}
-                                placeholder="Enter your full name"
-                                placeholderTextColor="rgba(255,255,255,0.2)"
-                            />
-                        </View>
-
-                        <View style={s.inputWrapper}>
-                            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>PHONE NUMBER</Txt>
-                            <TextInput
-                                style={s.input}
-                                value={phone}
-                                onChangeText={setPhone}
-                                placeholder="868-000-0000"
-                                placeholderTextColor="rgba(255,255,255,0.2)"
-                                keyboardType="phone-pad"
-                            />
-                        </View>
-
-                        <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
-                            <LinearGradient
-                                colors={[VOICES.rider.accent, CYAN]}
-                                start={{x: 0, y: 0}}
-                                end={{x: 1, y: 0}}
-                                style={s.btnGradient}
-                            >
-                                {saving ? <ActivityIndicator color="#EAF3F6" /> : (
-                                    <Txt variant="bodyBold" color="#EAF3F6">SAVE CHANGES</Txt>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
-
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </View>
+            <Field label="Full name" value={fullName} onChangeText={setFullName} placeholder="Your full name" autoCapitalize="words" textContentType="name" />
+            <Field label="Phone number" value={phone} onChangeText={setPhone} placeholder="868 000 0000" keyboardType="phone-pad" textContentType="telephoneNumber"
+                hint="Your driver uses this to reach you during a ride." />
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 32 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-
-    scroll: { paddingBottom: 48 },
-    photoGroup: { alignItems: 'center', marginBottom: 40 },
-    avatarBorder: { width: 110, height: 110, borderRadius: 55, padding: 3, alignItems: 'center', justifyContent: 'center' },
-    avatarInner: { width: 104, height: 104, borderRadius: 52, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    image: { width: '100%', height: '100%' },
-    overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-
-    form: { paddingHorizontal: 20 },
-    inputWrapper: { marginBottom: 24, gap: 10 },
-    label: { marginLeft: 8, opacity: 0.8 },
-    input: { height: 60, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#EAF3F6', fontSize: 16, ...ghostBorder(0.05) },
-
-    saveBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 32, ...elevationGlow() },
-    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});

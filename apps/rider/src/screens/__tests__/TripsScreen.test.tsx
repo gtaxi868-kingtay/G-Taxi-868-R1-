@@ -19,6 +19,6 @@ describe('TripsScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: {}, key: 'test', name: 'Trips' as const };
     const { getByText } = render(<TripsScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/ENGAGEMENT LOG/i)).toBeTruthy();
+    expect(getByText(/Your trips/i)).toBeTruthy();
   });
 });

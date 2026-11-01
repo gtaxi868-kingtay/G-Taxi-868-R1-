@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, Alert,
+    View, Text, StyleSheet, TouchableOpacity, Alert, Pressable,
     Linking, useWindowDimensions, Platform, Image as RNImage, AppState,
     Modal, TextInput, KeyboardAvoidingView,
     ActivityIndicator, Share
@@ -17,8 +17,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { toast } from '../components/Toast';
+import { BRAND_GRADIENT, Button, Card, Field, GUTTER, Loading, RADIUS, Screen, SPACE, Txt, useTheme } from '../ui/kit';
 import { ENV } from '@g868/shared/env';
 import { supabase, supportWhatsAppLink } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
@@ -27,10 +27,6 @@ import { useRideSession } from '../hooks/useRideSession';
 import { GuardianSosPanel } from '../components/GuardianSosPanel';
 import { CancelReasonSheet } from '../components/CancelReasonSheet';
 
-const CYAN = '#00E5FF';
-const SUCCESS = '#00FF94';
-const ERROR = '#FF4D6D';
-const WARNING = '#F59E0B';
 
 const getCategoryEmoji = (cat: string) => {
     const map: Record<string, string> = {
@@ -56,12 +52,11 @@ const getCategoryEmoji = (cat: string) => {
 };
 
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: SURFACE.base }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: VOICES.rider.accent }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: SURFACE.base }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: SURFACE.containerLow }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: VOICES.rider.accent, weight: 0.5 }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: CYAN, lightness: -80 }] },
+    { elementType: 'geometry', stylers: [{ color: '#0B0814' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#B9AEFF' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0B0814' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1C1626' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0E1A24' }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
 
@@ -92,15 +87,15 @@ const DriverMarker = ({ coordinate, rotation }: DriverMarkerProps) => {
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: 'rgba(0,229,255,0.3)',
+                    backgroundColor: 'rgba(139,124,255,0.3)',
                 }]} />
                 <View style={{
                     width: 16,
                     height: 16,
                     borderRadius: 8,
-                    backgroundColor: CYAN,
+                    backgroundColor: '#8B7CFF',
                     borderWidth: 2,
-                    borderColor: '#EAF3F6',
+                    borderColor: '#FFFFFF',
                 }} />
             </View>
         </Marker>
@@ -130,7 +125,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     // the other to finish (code review 2026-10-18).
     const UI_SETTLE_MS = 400;
     const openReasonSheet = () => setTimeout(() => setReasonOpen(true), UI_SETTLE_MS);
-    const [aiInsight, setAiInsight] = useState<string | null>("I'm monitoring your ride security and wait-time.");
+    const [aiInsight, setAiInsight] = useState<string | null>(null);
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [musicModalVisible, setMusicModalVisible] = useState(false);
     const [musicUrl, setMusicUrl] = useState('');
@@ -479,24 +474,18 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             return;
         }
 
-        setIsMusicLoading(true);
-        const { error } = await supabase
-            .from('rides')
-            .update({ 
-                entertainment_url: musicUrl,
-                entertainment_status: 'pending' 
-            })
-            .eq('id', rideId);
-        
         if (!rideId) {
             Alert.alert("Error", "No active ride session found.");
-            setIsMusicLoading(false);
             return;
         }
-
+        setIsMusicLoading(true);
+        // Riders cannot update rides directly (no grant; RLS only allows a
+        // cancel). rider_set_ride_options changes just these fields on the
+        // rider's own live ride.
+        const { data, error } = await supabase.rpc('rider_set_ride_options', { p_ride_id: rideId, p_entertainment_url: musicUrl });
         setIsMusicLoading(false);
-        if (error) {
-            Alert.alert("Error", "Could not send suggestion.");
+        if (error || !(data as any)?.success) {
+            Alert.alert("Couldn't send it", (data as any)?.error || "Could not send suggestion. Please try again.");
         } else {
             setMusicModalVisible(false);
             setAiInsight("Music suggestion sent! Waiting for driver approval...");
@@ -522,15 +511,15 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const toggleSafeEntry = async () => {
         try {
             const nextValue = !ride?.safe_entry;
-            const { error } = await supabase
-                .from('rides')
-                .update({ safe_entry: nextValue })
-                .eq('id', rideId);
-            
-            if (!error) {
+            const { data, error } = await supabase.rpc('rider_set_ride_options', { p_ride_id: rideId, p_safe_entry: nextValue });
+
+            if (!error && (data as any)?.success) {
                 setRide((prev: any) => ({ ...prev, safe_entry: nextValue }));
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 setAiInsight(nextValue ? "Safe Entry Mode ACTIVE. Driver is instructed to wait for you." : "Safe Entry Mode disabled.");
+            } else {
+                // Used to fail silently: the rider tapped a safety switch and nothing happened.
+                Alert.alert("Safe Entry", (data as any)?.error || "Couldn't change Safe Entry right now. Please try again.");
             }
         } catch (error) {
             console.error(error);
@@ -545,7 +534,9 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                 text: "SEND SOS", style: "destructive", onPress: async () => {
                     // Show the call buttons first: a person is one tap away
                     // whatever happens to the network request below.
-                    setSosPanel({ guardianPhone: null });
+                    // Wait for the alert to finish closing: iOS drops a Modal
+                    // presented while an Alert is still animating out.
+                    setTimeout(() => setSosPanel(prev => prev ?? { guardianPhone: null }), UI_SETTLE_MS);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                     if (!rideId) return;
                     setIsSosLoading(true);
@@ -579,208 +570,172 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
     const step = ride?.status === 'assigned' || ride?.status === 'arrived' ? 1 : 2;
 
+    const m = useTheme();
+    const night = m.key === 'night';
+    const tileStyle = night ? 'navigation-night-v1' : 'light-v11';
+    const [cardH, setCardH] = useState(300);
+
+    const statusLabel = ride?.status === 'assigned' ? 'Driver on the way'
+        : ride?.status === 'arrived' ? 'Your driver is here'
+        : ride?.status === 'in_progress' ? 'On your way'
+        : 'Connecting';
+    const statusColor = ride?.status === 'in_progress' ? '#2FB57C' : ride?.status === 'arrived' ? '#F5A524' : '#8B7CFF';
+
     if (!ride) {
         return (
-            <View style={{ flex: 1, backgroundColor: SURFACE.base, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                <ActivityIndicator size="large" color={VOICES.rider.accent} />
-                <Text style={{ marginTop: 16, textAlign: 'center', color: VOICES.rider.textMuted }}>Connecting to your ride...</Text>
-            </View>
+            <Screen scroll={false}>
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <Loading />
+                    <Txt variant="body" tone="dim">Connecting to your ride…</Txt>
+                </View>
+            </Screen>
         );
     }
 
-    return (
-        <View style={s.root} pointerEvents="box-none">
-            <StatusBar style="light" />
+    const action = (icon: any, label: string, onPress: () => void, color?: string) => (
+        <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+            style={({ pressed }) => ({ flex: 1, alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={icon} size={20} color={color || m.ink} />
+            </View>
+            <Txt variant="caption" tone="dim" numberOfLines={1} style={{ marginTop: 6 }}>{label}</Txt>
+        </Pressable>
+    );
 
-            {/* Dark Map with Blueberry Luxe Styling */}
+    return (
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
-                customMapStyle={DARK_MAP_STYLE}
-                initialRegion={{
-                    latitude: ride?.pickup_lat || 10.66,
-                    longitude: ride?.pickup_lng || -61.51,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                }}
-                userInterfaceStyle="dark"
+                customMapStyle={night ? DARK_MAP_STYLE : []}
+                initialRegion={{ latitude: ride?.pickup_lat || 10.66, longitude: ride?.pickup_lng || -61.51, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
+                mapPadding={{ top: insets.top + 64, right: 0, bottom: cardH, left: 0 }}
+                userInterfaceStyle={night ? 'dark' : 'light'}
             >
                 {ENV.MAPBOX_PUBLIC_TOKEN && (
-                    <UrlTile
-                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
-                        shouldReplaceMapContent={true}
-                    />
+                    <UrlTile key={tileStyle} urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent={true} />
                 )}
-
-                {driverLocation && (
-                    <DriverMarker coordinate={driverLocation} rotation={driver?.heading || 0} />
-                )}
-                {/* Pickup Marker */}
+                {driverLocation && <DriverMarker coordinate={driverLocation} rotation={driver?.heading || 0} />}
                 <Marker coordinate={{ latitude: ride?.pickup_lat || 0, longitude: ride?.pickup_lng || 0 }}>
-                    <View style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 7,
-                        backgroundColor: '#EAF3F6',
-                        borderWidth: 3,
-                        borderColor: VOICES.rider.accent,
-                    }} />
+                    <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#8B7CFF', borderWidth: 3, borderColor: '#FFFFFF' }} />
                 </Marker>
                 <Marker coordinate={{ latitude: ride?.dropoff_lat || 0, longitude: ride?.dropoff_lng || 0 }}>
-                    <View style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 7,
-                        backgroundColor: '#EAF3F6',
-                        borderWidth: 3,
-                        borderColor: CYAN,
-                    }} />
+                    <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: night ? '#E9CFA6' : '#21152E', borderWidth: 3, borderColor: '#FFFFFF' }} />
                 </Marker>
-
-                {/* Network Merchant Pins — shown when ride is active */}
-                {['assigned', 'arrived', 'in_progress'].includes(ride?.status) && merchants.map((m: any) => (
-                    <Marker
-                        key={m.id}
-                        coordinate={{ latitude: m.lat, longitude: m.lng }}
-                        onPress={() => setSelectedMerchant(m)}
-                    >
-                        <View style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 8,
-                            backgroundColor: SURFACE.containerLow,
-                            borderWidth: 2,
-                            borderColor: VOICES.rider.accent,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <Text style={{ fontSize: 16 }}>{getCategoryEmoji(m.category)}</Text>
+                {['assigned', 'arrived', 'in_progress'].includes(ride?.status) && merchants.map((mm: any) => (
+                    <Marker key={mm.id} coordinate={{ latitude: mm.lat, longitude: mm.lng }} onPress={() => setSelectedMerchant(mm)}>
+                        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: m.sheet[1], borderWidth: 2, borderColor: '#8B7CFF', alignItems: 'center', justifyContent: 'center' }}>
+                            <Txt variant="body">{getCategoryEmoji(mm.category)}</Txt>
                         </View>
                     </Marker>
                 ))}
             </MapView>
 
-            {signalStatus === 'stale' && (
-                <View style={[s.signalBanner, { top: insets.top + 60 }]}>
-                    <Ionicons name="cellular-outline" size={16} color="#07070F" />
-                    <Text style={s.signalBannerText}>
-                        Driver signal temporarily lost. Last position shown.
-                    </Text>
-                </View>
-            )}
-
-            {signalStatus === 'lost' && (
-                <View style={[s.signalBannerLost, { top: insets.top + 60 }]}>
-                    <Ionicons name="warning" size={20} color="#EAF3F6" />
-                    <Text style={s.signalBannerLostText}>
-                        We've lost contact with your driver.{'\n'}
-                        Your trip is still active.
-                    </Text>
-                    <View style={s.signalButtons}>
-                        <TouchableOpacity style={s.signalBtnPrimary} onPress={() => navigation.navigate('Chat', { rideId })} accessibilityLabel="Contact driver" accessibilityRole="button">
-                            <Text style={s.signalBtnPrimaryText}>Contact Driver</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={s.signalBtnSecondary} onPress={openWhatsAppSupport} accessibilityLabel="Call support" accessibilityRole="button">
-                            <Text style={s.signalBtnSecondaryText}>Call Support</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-
-            {/* Status Badge - Top Center */}
-            <Reanimated.View style={[s.statusBubble, statusStyle, { top: insets.top + 12 }]}>
-                <View style={s.statusBadge}>
-                    <View style={[s.statusDot, { 
-                        backgroundColor: ride?.status === 'in_progress' ? SUCCESS : 
-                                        ride?.status === 'arrived' ? WARNING : CYAN
-                    }]} />
-                    <Text style={s.statusText}>{(ride?.status || '').charAt(0).toUpperCase() + (ride?.status || '').slice(1).replace('_', ' ')}</Text>
-                </View>
-            </Reanimated.View>
-
-            {/* AI Concierge HUD */}
-            {aiInsight && (
-                <Reanimated.View entering={FadeInUp} style={[s.aiInsightHud, { width: width * 0.9, top: insets.top + 70 }]}>
-                    <BlurView intensity={60} tint="dark" style={[s.aiInsightBlur, glassSurface(60, 0.2)]}>
-                        <LinearGradient 
-                            colors={[VOICES.rider.accent, VOICES.rider.accentDark]} 
-                            style={s.aiInsightGradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                        >
-                            <View style={{ flex: 1 }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                    <Ionicons name="star" size={14} color="#EAF3F6" />
-                                    <Text style={s.aiTitle}>G-Taxi</Text>
-                                </View>
-                                <Text style={s.aiMessage}>{aiInsight}</Text>
-                                
-                                {aiInsight.toLowerCase().includes('stop') && (
-                                    <TouchableOpacity
-                                        style={s.aiActionBtn}
-                                        accessibilityLabel="Add AI suggested stop to trip"
-                                        accessibilityRole="button"
-                                        onPress={async () => {
-                                            setAiInsight("Updating trip manifest... Navigation synced.");
-                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                            
-                                            try {
-                                                const { data, error } = await supabase.rpc('add_mid_ride_stop', {
-                                                    p_ride_id: rideId,
-                                                    p_place_name: 'ATM Stop',
-                                                    p_lat: (ride?.dropoff_lat || 10.66) + 0.002,
-                                                    p_lng: (ride?.dropoff_lng || -61.51) + 0.002,
-                                                    p_address: 'Dynamic AI Suggested Stop'
-                                                });
-                                                if (error) throw error;
-                                            } catch (err) {
-                                                console.error("Failed to add mid-ride stop:", err);
-                                                setAiInsight("Unable to add stop. Please try again.");
-                                            }
-                                        }}
-                                    >
-                                        <Text style={{ fontSize: 12, fontWeight: '800', color: CYAN }}>ADD TO TRIP</Text>
-                                        <Ionicons name="arrow-forward-circle" size={16} color={CYAN} style={{ marginLeft: 4 }} />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                            <TouchableOpacity onPress={() => setAiInsight(null)} style={{ padding: 4 }} accessibilityLabel="Dismiss AI suggestion" accessibilityRole="button">
-                                <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
-                            </TouchableOpacity>
-                        </LinearGradient>
-                    </BlurView>
+            {/* Status pill */}
+            <View style={{ position: 'absolute', top: insets.top + 12, left: GUTTER, right: GUTTER, alignItems: 'center' }}>
+                <Reanimated.View style={[statusStyle, { flexDirection: 'row', alignItems: 'center', height: 38, paddingHorizontal: 16, borderRadius: 19, backgroundColor: m.sheet[1], borderWidth: 1, borderColor: m.sheetBorder }]}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: statusColor, marginRight: 8 }} />
+                    <Txt variant="label">{statusLabel}</Txt>
                 </Reanimated.View>
-            )}
+            </View>
 
-            {/* Bottom Card - Glassmorphism */}
-            <View style={[s.bottomCard, { paddingBottom: insets.bottom + 20 }]}>
-                <BlurView intensity={60} tint="dark" style={[s.cardBlur, glassSurface(60, 0.2)]}>
-                    <View style={s.handle} />
+            {/* Signal problems / G note — stacked under the status pill */}
+            <View style={{ position: 'absolute', top: insets.top + 60, left: GUTTER, right: GUTTER, gap: SPACE.sm }}>
+                {signalStatus === 'stale' && (
+                    <Card style={{ flexDirection: 'row', alignItems: 'center', padding: SPACE.md }}>
+                        <Ionicons name="cellular-outline" size={16} color="#D97706" />
+                        <Txt variant="caption" style={{ flex: 1, marginLeft: SPACE.sm }}>Driver signal is weak. Showing their last position.</Txt>
+                    </Card>
+                )}
+                {signalStatus === 'lost' && (
+                    <Card style={{ borderColor: '#E5484D' }}>
+                        <Txt variant="bodyStrong">We lost contact with your driver</Txt>
+                        <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>Your trip is still active.</Txt>
+                        <View style={{ flexDirection: 'row', gap: SPACE.md, marginTop: SPACE.md }}>
+                            <Button title="Message driver" size="sm" style={{ flex: 1 }} onPress={() => navigation.navigate('Chat', { rideId })} />
+                            <Button title="Call support" size="sm" variant="secondary" style={{ flex: 1 }} onPress={openWhatsAppSupport} />
+                        </View>
+                    </Card>
+                )}
+                {aiInsight && signalStatus === 'ok' && (
+                    <Card style={{ flexDirection: 'row', alignItems: 'flex-start', padding: SPACE.md }}>
+                        <Ionicons name="sparkles" size={16} color={m.accent} style={{ marginTop: 2 }} />
+                        <Txt variant="body" style={{ flex: 1, marginHorizontal: SPACE.sm }}>{aiInsight}</Txt>
+                        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss" hitSlop={8} onPress={() => setAiInsight(null)}>
+                            <Ionicons name="close" size={18} color={m.faint} />
+                        </Pressable>
+                    </Card>
+                )}
+            </View>
 
-                    {/* Driver Info Row */}
-                    <View style={s.driverRow}>
-                        <View style={s.avatar}>
-                            <Text style={s.avatarTxt}>{driver?.name?.charAt(0)}</Text>
-                        </View>
-                        <View style={{ flex: 1, marginLeft: 16 }}>
-                            <Text style={s.driverName}>{driver?.name || 'Partner'}</Text>
-                            <Text style={s.vehicleInfo}>{driver?.vehicle_model} · {driver?.plate_number}</Text>
-                        </View>
-                        {ride?.ride_pin && (
-                            <View style={s.pinBadge}>
-                                <Text style={s.pinLabel}>RIDE PIN</Text>
-                                <Text style={s.pinValue}>{ride?.ride_pin}</Text>
-                            </View>
-                        )}
-                        <TouchableOpacity style={s.sosBtn} onPress={handleSOS} accessibilityLabel="Emergency SOS" accessibilityRole="button">
-                            <Reanimated.View style={[s.sosRing, sosAnim]} />
-                            <Text style={s.sosLabel}>SOS</Text>
-                        </TouchableOpacity>
+            {/* Driver card */}
+            <View
+                onLayout={(e) => setCardH(e.nativeEvent.layout.height)}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet,
+                    borderWidth: 1, borderBottomWidth: 0, borderColor: m.sheetBorder, paddingHorizontal: GUTTER, paddingTop: SPACE.md, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm,
+                    shadowColor: '#000', shadowOpacity: m.shadowOpacity, shadowRadius: 24, shadowOffset: { width: 0, height: -6 }, elevation: 16 }}
+            >
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: m.chipBorder, alignSelf: 'center', marginBottom: SPACE.lg }} />
+
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 52, height: 52, borderRadius: 26, overflow: 'hidden' }}>
+                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <Txt variant="title" tone="onBrand">{driver?.name?.charAt(0) || 'G'}</Txt>
+                        </LinearGradient>
                     </View>
+                    <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                        <Txt variant="headline" numberOfLines={1}>{driver?.name || 'Your driver'}</Txt>
+                        <Txt variant="caption" tone="dim" numberOfLines={1}>{[driver?.vehicle_model, driver?.plate_number].filter(Boolean).join(' · ') || 'Vehicle details loading'}</Txt>
+                    </View>
+                    {ride?.ride_pin && (
+                        <View style={{ alignItems: 'center', paddingHorizontal: SPACE.md, paddingVertical: 6, borderRadius: 14, backgroundColor: m.field, marginRight: SPACE.sm }}>
+                            <Txt variant="overline" tone="faint">PIN</Txt>
+                            <Txt variant="headline">{ride.ride_pin}</Txt>
+                        </View>
+                    )}
+                    <Pressable accessibilityRole="button" accessibilityLabel="Emergency SOS" onPress={handleSOS}>
+                        <Reanimated.View style={[sosAnim, { width: 52, height: 52, borderRadius: 26, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' }]}>
+                            {isSosLoading ? <ActivityIndicator color="#FFFFFF" /> : <Txt variant="label" tone="onBrand">SOS</Txt>}
+                        </Reanimated.View>
+                    </Pressable>
+                </View>
 
-                    <CancelReasonSheet visible={reasonOpen} onPick={executeCancelRide} onClose={() => setReasonOpen(false)} />
+                {ride?.status === 'arrived' && ride?.arrived_at && <IsolatedWaitClock arrivedAt={ride.arrived_at} setAiInsight={setAiInsight} />}
 
-                    {sosPanel && rideId && (
+                {/* Trip progress */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.lg }}>
+                    {[{ icon: 'location', on: step >= 1, label: 'Pickup' }, { icon: 'car', on: step >= 2, label: 'Riding' }, { icon: 'flag', on: false, label: 'Drop-off' }].map((n, i) => (
+                        <React.Fragment key={n.label}>
+                            {i > 0 && <View style={{ flex: 1, height: 2, backgroundColor: n.on ? '#8B7CFF' : m.chipBorder, marginHorizontal: 6 }} />}
+                            <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: n.on ? '#8B7CFF' : m.field }}>
+                                <Ionicons name={n.icon as any} size={13} color={n.on ? '#FFFFFF' : m.faint} />
+                            </View>
+                        </React.Fragment>
+                    ))}
+                </View>
+
+                {/* Actions */}
+                <View style={{ flexDirection: 'row', marginTop: SPACE.lg }}>
+                    {action('call-outline', 'Call', () => driver?.phone_number ? Linking.openURL(`tel:${driver.phone_number}`) : toast('Your driver’s number is not available. Send a message instead.'))}
+                    {action('chatbubble-ellipses-outline', 'Message', () => navigation.navigate('Chat', { rideId, driver }))}
+                    {action('share-social-outline', 'Share trip', handleShareMirror)}
+                    {action(ride?.safe_entry ? 'home' : 'home-outline', 'Safe entry', toggleSafeEntry, ride?.safe_entry ? '#2FB57C' : undefined)}
+                    {action(ride?.entertainment_status === 'accepted' ? 'musical-notes' : 'musical-note-outline', 'Music', () => setMusicModalVisible(true), ride?.entertainment_status === 'accepted' ? '#2FB57C' : undefined)}
+                </View>
+
+                {ride?.status !== 'in_progress' && (
+                    <Button title="Cancel ride" variant="ghost" size="md" style={{ marginTop: SPACE.lg }} onPress={handleCancelRide} />
+                )}
+            </View>
+
+            <CancelReasonSheet visible={reasonOpen} onPick={executeCancelRide} onClose={() => setReasonOpen(false)} />
+
+            {/* SOS: a full sheet over everything, so the call buttons are never hidden */}
+            <Modal visible={!!(sosPanel && rideId)} transparent animationType="slide" onRequestClose={() => setSosPanel(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(10,0,4,0.6)', justifyContent: 'flex-end', paddingHorizontal: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                    {sosPanel && rideId ? (
                         <GuardianSosPanel
                             rideId={rideId}
                             guardianPhone={sosPanel.guardianPhone}
@@ -790,155 +745,36 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                             plate={driver?.plate_number ?? null}
                             onClose={() => setSosPanel(null)}
                         />
-                    )}
-
-                    {/* Wait Clock */}
-                    {ride?.status === 'arrived' && ride?.arrived_at && (
-                        <IsolatedWaitClock arrivedAt={ride?.arrived_at} setAiInsight={setAiInsight} />
-                    )}
-
-                    {/* Progress Track */}
-                    <View style={s.track}>
-                        <View style={[s.trackNode, step >= 1 && s.trackNodeActive]}>
-                            <Ionicons name="location" size={12} color={step >= 1 ? '#EAF3F6' : VOICES.rider.textMuted} />
-                        </View>
-                        <View style={[s.trackLine, step >= 2 && s.trackLineActive]} />
-                        <View style={[s.trackNode, step >= 2 && s.trackNodeActive]}>
-                            <Ionicons name="car" size={12} color={step >= 2 ? '#EAF3F6' : VOICES.rider.textMuted} />
-                        </View>
-                        <View style={s.trackLine} />
-                        <View style={s.trackNode}>
-                            <Ionicons name="flag" size={12} color={VOICES.rider.textMuted} />
-                        </View>
-                    </View>
-
-                    {/* Action Buttons */}
-                    <View style={s.actions}>
-                        <TouchableOpacity style={s.msgBtn} onPress={() => navigation.navigate('Chat', { rideId, driver })} accessibilityLabel="Chat with driver" accessibilityRole="button">
-                            <Ionicons name="chatbubble-ellipses" size={20} color={VOICES.rider.accent} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[s.msgBtn, { marginLeft: 8 }]}
-                            onPress={() => setMusicModalVisible(true)}
-                            accessibilityLabel="Request music entertainment"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons
-                                name={ride?.entertainment_status === 'accepted' ? "musical-notes" : "musical-note-outline"}
-                                size={20}
-                                color={ride?.entertainment_status === 'accepted' ? SUCCESS : VOICES.rider.accent}
-                            />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[s.msgBtn, { marginLeft: 8 }]}
-                            onPress={handleShareMirror}
-                            accessibilityLabel="Share trip safety mirror"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="shield-checkmark" size={20} color={CYAN} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[s.msgBtn, { marginLeft: 8 }]}
-                            onPress={toggleSafeEntry}
-                            accessibilityLabel={ride?.safe_entry ? 'Disable safe entry mode' : 'Enable safe entry mode'}
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="home-outline" size={20} color={ride?.safe_entry ? SUCCESS : VOICES.rider.accent} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)} accessibilityLabel="Call driver" accessibilityRole="button">
-                            <Ionicons name="call" size={20} color={VOICES.rider.accent} />
-                            <Text style={s.callLabel}>Voice Call</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[s.msgBtn, { marginLeft: 8 }]}
-                            onPress={handleCancelRide}
-                            accessibilityLabel="Cancel ride"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="close-circle" size={20} color={ERROR} />
-                        </TouchableOpacity>
-                    </View>
-                </BlurView>
-            </View>
-
-            {/* Merchant Stop Callout */}
-            <Modal visible={!!selectedMerchant} transparent animationType="fade">
-                <View style={s.modalOverlay}>
-                    <BlurView tint="dark" intensity={60} style={[s.merchantCallout, glassSurface(60, 0.2)]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                            <View style={{
-                                width: 48, height: 48, borderRadius: 12,
-                                backgroundColor: VOICES.rider.accent + '20',
-                                alignItems: 'center', justifyContent: 'center',
-                                marginRight: 14,
-                            }}>
-                                <Text style={{ fontSize: 24 }}>{getCategoryEmoji(selectedMerchant?.category)}</Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 18, fontWeight: '800', color: '#EAF3F6' }}>
-                                    {selectedMerchant?.name}
-                                </Text>
-                                <Text style={{ fontSize: 13, color: VOICES.rider.textMuted, marginTop: 2 }}>
-                                    {selectedMerchant?.category} · {selectedMerchant?.distance_km}km
-                                </Text>
-                            </View>
-                        </View>
-                        <Text style={{ fontSize: 14, color: VOICES.rider.textMuted, marginBottom: 20, lineHeight: 20 }}>
-                            Add {selectedMerchant?.name} as a stop on your route?{'\n'}
-                            A small convenience fee applies.
-                        </Text>
-                        <View style={s.modalActions}>
-                            <TouchableOpacity
-                                style={s.modalCancel}
-                                onPress={() => setSelectedMerchant(null)}
-                            >
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.rider.textMuted }}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={s.modalConfirm}
-                                onPress={() => handleAddMerchantStop(selectedMerchant)}
-                                disabled={addingStop}
-                            >
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#EAF3F6' }}>
-                                    {addingStop ? 'Adding...' : 'Add Stop'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </BlurView>
+                    ) : null}
                 </View>
             </Modal>
 
-            {/* Music Modal */}
-            <Modal visible={musicModalVisible} transparent animationType="slide">
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-                    <BlurView tint="dark" intensity={60} style={[s.modalContent, glassSurface(60, 0.2)]}>
-                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#EAF3F6', marginBottom: 12 }}>Music Suggestion</Text>
-                        <Text style={{ fontSize: 14, color: VOICES.rider.textMuted, textAlign: 'center', marginBottom: 24 }}>
-                            Suggest a Spotify or YouTube link for the driver to play.
-                        </Text>
-                        <TextInput 
-                            style={s.musicInput} 
-                            placeholder="https://..." 
-                            placeholderTextColor="rgba(255,255,255,0.3)"
-                            value={musicUrl}
-                            onChangeText={setMusicUrl}
-                            autoFocus
-                            autoCapitalize="none"
-                        />
-                        <View style={s.modalActions}>
-                            <TouchableOpacity style={s.modalCancel} onPress={() => setMusicModalVisible(false)}>
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.rider.textMuted }}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={s.modalConfirm} onPress={handleMusicSuggestion} disabled={isMusicLoading}>
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#EAF3F6' }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
-                            </TouchableOpacity>
+            {/* Add a shop as a stop */}
+            <Modal visible={!!selectedMerchant} transparent animationType="fade" onRequestClose={() => setSelectedMerchant(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                        <Txt variant="title">{getCategoryEmoji(selectedMerchant?.category)} {selectedMerchant?.name}</Txt>
+                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>
+                            {selectedMerchant?.category}{selectedMerchant?.distance_km ? ` · ${selectedMerchant.distance_km} km away` : ''}. Add it as a stop on your route? A small stop fee applies.
+                        </Txt>
+                        <Button title="Add stop" style={{ marginTop: SPACE.xl }} loading={addingStop} onPress={() => handleAddMerchantStop(selectedMerchant)} />
+                        <Button title="Not now" variant="ghost" style={{ marginTop: SPACE.md }} onPress={() => setSelectedMerchant(null)} />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Music request */}
+            <Modal visible={musicModalVisible} transparent animationType="slide" onRequestClose={() => setMusicModalVisible(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                        <Txt variant="title">Suggest a song</Txt>
+                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs, marginBottom: SPACE.lg }}>Paste a Spotify or YouTube link. Your driver can choose to play it.</Txt>
+                        <Field placeholder="https://…" value={musicUrl} onChangeText={setMusicUrl} autoFocus autoCapitalize="none" keyboardType="url" />
+                        <View style={{ flexDirection: 'row', gap: SPACE.md }}>
+                            <Button title="Cancel" variant="secondary" style={{ flex: 1 }} onPress={() => setMusicModalVisible(false)} />
+                            <Button title="Send" style={{ flex: 1 }} loading={isMusicLoading} onPress={handleMusicSuggestion} />
                         </View>
-                    </BlurView>
+                    </View>
                 </KeyboardAvoidingView>
             </Modal>
         </View>
@@ -965,411 +801,11 @@ function IsolatedWaitClock({ arrivedAt, setAiInsight, isStop }: { arrivedAt: str
     }, [arrivedAt, stats.mins, isStop]);
 
     return (
-        <View style={s.waitClockRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="time" size={16} color={WARNING} />
-                <Text style={s.lateFeeValue}>
-                    {isStop ? 'EDGE OUT: TTD $' : 'LATE FEE: TTD $'}{(stats.cents / 100).toFixed(2)}
-                </Text>
-            </View>
-            <Text style={s.lateFeeLabel}>{stats.mins}m elapsed · TT$1.50/min {isStop ? '(no grace period)' : ''}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: 14, backgroundColor: 'rgba(245,165,36,0.12)' }}>
+            <Ionicons name="time-outline" size={16} color="#D97706" />
+            <Txt variant="caption" style={{ flex: 1, marginLeft: SPACE.sm }}>
+                Your driver has waited {stats.mins} min. {isStop ? 'Stop' : 'Waiting'} fee so far: TT${(stats.cents / 100).toFixed(2)} (TT$1.50/min)
+            </Txt>
         </View>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-
-    statusBubble: { 
-        position: 'absolute', 
-        alignSelf: 'center', 
-        zIndex: 100,
-    },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        backgroundColor: 'rgba(28,25,43,0.9)',
-        borderRadius: 20,
-        ...ghostBorder(0.2),
-        ...elevationGlow(6),
-    },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-    },
-    statusText: {
-        fontSize: 12,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        letterSpacing: 1,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-
-    aiInsightHud: { 
-        alignSelf: 'center', 
-        position: 'absolute', 
-        zIndex: 90,
-    },
-    aiInsightBlur: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    aiInsightGradient: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 14, 
-        borderRadius: 20,
-        ...ghostBorder(0.15),
-    },
-    aiTitle: { 
-        marginLeft: 6, 
-        fontSize: 10, 
-        fontWeight: '800', 
-        color: '#EAF3F6', 
-        letterSpacing: 1,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    aiMessage: { 
-        fontSize: 13, 
-        fontWeight: '500', 
-        color: '#EAF3F6', 
-        lineHeight: 18,
-        marginTop: 2,
-        fontFamily: 'Manrope-Medium',
-    },
-    aiActionBtn: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        ...glassSurface(),
-        ...ghostBorder(0.2),
-        borderRadius: 12, 
-        paddingVertical: 6, 
-        paddingHorizontal: 12, 
-        marginTop: 10, 
-        alignSelf: 'flex-start',
-    },
-
-    bottomCard: { 
-        position: 'absolute', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        paddingHorizontal: 20,
-    },
-    cardBlur: { 
-        padding: 24, 
-        backgroundColor: 'rgba(28,25,43,0.85)',
-        borderRadius: 28,
-        ...ghostBorder(0.2),
-        ...elevationGlow(8),
-        overflow: 'hidden',
-    },
-    handle: { 
-        width: 40, 
-        height: 4, 
-        borderRadius: 2, 
-        backgroundColor: 'rgba(255,255,255,0.2)', 
-        alignSelf: 'center', 
-        marginBottom: 20,
-    },
-
-    driverRow: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        marginBottom: 24,
-    },
-    avatar: { 
-        width: 56, 
-        height: 56, 
-        borderRadius: 16, 
-        backgroundColor: VOICES.rider.accent, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        ...elevationGlow(8),
-    },
-    avatarTxt: { 
-        fontSize: 24, 
-        fontWeight: '800', 
-        color: SURFACE.base,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    driverName: {
-        fontSize: 23,
-        color: '#EAF3F6',
-        fontFamily: 'CormorantGaramond_600SemiBold',
-    },
-    vehicleInfo: { 
-        fontSize: 13, 
-        fontWeight: '500', 
-        color: VOICES.rider.textMuted,
-        marginTop: 2,
-        fontFamily: 'Manrope-Medium',
-    },
-
-    pinBadge: { 
-        flex: 1, 
-        alignItems: 'center', 
-        marginHorizontal: 12, 
-        paddingVertical: 8, 
-        backgroundColor: 'rgba(0,229,255,0.05)', 
-        borderRadius: 16, 
-        ...ghostBorder(0.15),
-    },
-    pinLabel: { 
-        fontSize: 10, 
-        fontWeight: '600', 
-        color: VOICES.rider.textMuted, 
-        letterSpacing: 1,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    pinValue: { 
-        fontSize: 28, 
-        fontWeight: '800', 
-        color: CYAN, 
-        letterSpacing: 3,
-        marginTop: 2,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-
-    // Von Restorff: this was identical in size (56x56) to the purely
-    // decorative driver avatar sitting right next to it in the same row --
-    // the one safety-critical control on this screen read as just another
-    // circle. Enlarged past every other control in the row and given its
-    // own border so it reads as categorically different, not incidentally
-    // bigger. Tap target/behavior (handleSOS) is untouched.
-    sosBtn: { 
-        width: 68, 
-        height: 68, 
-        borderRadius: 20, 
-        backgroundColor: ERROR, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.35)',
-        ...elevationGlow(6),
-    },
-    sosLabel: { 
-        fontSize: 13, 
-        fontWeight: '800', 
-        color: '#EAF3F6',
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    sosRing: { 
-        position: 'absolute', 
-        width: 56, 
-        height: 56, 
-        borderRadius: 16, 
-        borderWidth: 2, 
-        borderColor: ERROR, 
-        opacity: 0.3,
-    },
-
-    track: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        marginBottom: 28, 
-        paddingHorizontal: 10,
-    },
-    trackNode: { 
-        width: 24, 
-        height: 24, 
-        borderRadius: 12, 
-        backgroundColor: SURFACE.containerLow, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...ghostBorder(0.2),
-    },
-    trackNodeActive: { 
-        backgroundColor: VOICES.rider.accent, 
-        borderColor: VOICES.rider.accent,
-    },
-    trackLine: { 
-        flex: 1, 
-        height: 2, 
-        backgroundColor: SURFACE.containerLow, 
-        marginHorizontal: 4,
-    },
-    trackLineActive: { 
-        backgroundColor: VOICES.rider.accent,
-    },
-
-    actions: { 
-        flexDirection: 'row', 
-        gap: 10,
-    },
-    msgBtn: { 
-        width: 52, 
-        height: 52, 
-        borderRadius: 14, 
-        backgroundColor: SURFACE.containerLow, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...ghostBorder(0.2),
-    },
-    callBtn: { 
-        flex: 1, 
-        height: 52, 
-        borderRadius: 14, 
-        backgroundColor: SURFACE.containerLow, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...ghostBorder(0.2),
-        gap: 8,
-    },
-    callLabel: { 
-        fontSize: 15, 
-        fontWeight: '700', 
-        color: VOICES.rider.accent,
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-
-    waitClockRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: 'rgba(245,158,11,0.08)',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 16,
-        marginBottom: 20,
-        ...ghostBorder(0.2),
-    },
-    lateFeeValue: { 
-        fontSize: 15, 
-        fontWeight: '800', 
-        color: WARNING,
-        letterSpacing: 0.5,
-    },
-    lateFeeLabel: { 
-        fontSize: 13, 
-        fontWeight: '500', 
-        color: VOICES.rider.textMuted,
-    },
-
-    modalOverlay: { 
-        flex: 1, 
-        backgroundColor: 'rgba(20,17,34,0.95)', 
-        justifyContent: 'center', 
-        padding: 20,
-    },
-    modalContent: { 
-        padding: 28, 
-        borderRadius: 28, 
-        alignItems: 'center', 
-        ...ghostBorder(0.2), 
-        overflow: 'hidden',
-        backgroundColor: SURFACE.containerLow,
-    },
-    musicInput: { 
-        width: '100%', 
-        height: 56, 
-        backgroundColor: 'rgba(255,255,255,0.05)', 
-        borderRadius: 14, 
-        paddingHorizontal: 16, 
-        color: '#EAF3F6', 
-        marginBottom: 20, 
-        ...ghostBorder(0.1),
-        fontSize: 16,
-    },
-    modalActions: { 
-        flexDirection: 'row', 
-        gap: 12, 
-        width: '100%',
-    },
-    modalCancel: { 
-        flex: 1, 
-        height: 50, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        borderRadius: 14,
-    },
-    modalConfirm: {
-        flex: 2,
-        height: 50,
-        backgroundColor: VOICES.rider.accent,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...elevationGlow(4),
-    },
-
-    signalBanner: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        backgroundColor: 'rgba(245, 158, 11, 0.9)',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        zIndex: 100,
-    },
-    signalBannerText: {
-        color: '#07070F',
-        fontSize: 13,
-        fontWeight: '700',
-        flex: 1,
-    },
-    signalBannerLost: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        backgroundColor: 'rgba(239, 68, 68, 0.95)',
-        padding: 20,
-        borderRadius: 16,
-        alignItems: 'center',
-        zIndex: 100,
-    },
-    signalBannerLostText: {
-        color: '#EAF3F6',
-        fontSize: 14,
-        fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: 16,
-        lineHeight: 20,
-    },
-    signalButtons: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    signalBtnPrimary: {
-        backgroundColor: '#EAF3F6',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-    },
-    signalBtnPrimaryText: {
-        color: '#EF4444',
-        fontSize: 14,
-        fontWeight: '800',
-    },
-    signalBtnSecondary: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-    },
-    signalBtnSecondaryText: {
-        color: '#EAF3F6',
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    merchantCallout: {
-        marginHorizontal: 20,
-        padding: 24,
-        borderRadius: 24,
-        backgroundColor: SURFACE.containerLow,
-        ...ghostBorder(0.2),
-        overflow: 'hidden',
-    },
-});

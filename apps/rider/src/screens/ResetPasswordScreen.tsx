@@ -1,43 +1,31 @@
 import React, { useState } from 'react';
-import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
-    ActivityIndicator, KeyboardAvoidingView, Platform,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { authErrorMessage } from '../utils/authMessages';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@gtaxi/core';
-import { VOICES } from '@gtaxi/design-system';
+import { RainLogin, CrystalInput, CrystalButton } from '@gtaxi/design-system/native';
 import { useAuth } from '../context/AuthContext';
+import { toast } from '../components/Toast';
 
 // Shown after the rider opens the password-reset email link (AuthContext
-// turns the link into a short recovery session). Sets the new password,
-// then drops into the app as normal.
+// turns the link into a short recovery session). Same crystal scaffold as
+// the sign-in screen.
 export function ResetPasswordScreen() {
-    const insets = useSafeAreaInsets();
     const { finishPasswordRecovery, signOut } = useAuth();
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
 
     const save = async () => {
-        if (password.length < 8) {
-            Alert.alert('Too short', 'Use at least 8 characters.');
-            return;
-        }
-        if (password !== confirm) {
-            Alert.alert("Doesn't match", 'The two passwords are different.');
-            return;
-        }
+        if (password.length < 8) { setError('Use at least 8 characters.'); return; }
+        if (password !== confirm) { setError('The two passwords are different.'); return; }
+        setError('');
         setSaving(true);
-        const { error } = await supabase.auth.updateUser({ password });
+        const { error: updateError } = await supabase.auth.updateUser({ password });
         setSaving(false);
-        if (error) {
-            Alert.alert('Could not change password', error.message);
-            return;
-        }
-        Alert.alert('Password changed', 'Your new password is set.');
+        if (updateError) { setError(authErrorMessage(updateError, 'reset')); return; }
+        toast('Your new password is set', 'success');
         finishPasswordRecovery();
     };
 
@@ -47,67 +35,31 @@ export function ResetPasswordScreen() {
     };
 
     return (
-        <View style={s.root}>
+        <View style={{ flex: 1 }}>
             <StatusBar style="light" />
-            <LinearGradient colors={['#1A0533', '#0D1B4B']} style={StyleSheet.absoluteFillObject} />
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[s.content, { paddingTop: insets.top + 60 }]}>
-                <View style={s.iconCircle}>
-                    <Ionicons name="key-outline" size={32} color={VOICES.rider.accent} />
-                </View>
+            <RainLogin
+                voice="rider"
+                logoSource={require('../../assets/logo.png')}
+                footer={
+                    <Pressable accessibilityRole="button" onPress={cancel} style={{ alignItems: 'center', paddingVertical: 8 }}>
+                        <Text style={s.linkText}>Cancel</Text>
+                    </Pressable>
+                }
+            >
                 <Text style={s.title}>Set a new password</Text>
-                <Text style={s.subtitle}>Choose a password you haven't used here before.</Text>
-
-                <Text style={s.label}>NEW PASSWORD</Text>
-                <TextInput
-                    style={s.input}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    placeholder="At least 8 characters"
-                    placeholderTextColor="rgba(255,255,255,0.4)"
-                />
-                <Text style={s.label}>CONFIRM</Text>
-                <TextInput
-                    style={s.input}
-                    value={confirm}
-                    onChangeText={setConfirm}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    placeholder="Type it again"
-                    placeholderTextColor="rgba(255,255,255,0.4)"
-                />
-
-                <TouchableOpacity style={s.button} onPress={save} disabled={saving}>
-                    <LinearGradient colors={[VOICES.rider.accent, VOICES.rider.accentDark]} style={s.buttonFill}>
-                        {saving ? <ActivityIndicator color="#FFF" /> : <Text style={s.buttonText}>Save password</Text>}
-                    </LinearGradient>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={cancel} style={{ marginTop: 18, alignSelf: 'center' }}>
-                    <Text style={s.cancel}>Cancel</Text>
-                </TouchableOpacity>
-            </KeyboardAvoidingView>
+                <Text style={s.body}>Choose one you have not used here before.</Text>
+                {error ? <Text style={s.error}>{error}</Text> : null}
+                <CrystalInput label="New password" voice="rider" placeholder="At least 8 characters" value={password} onChangeText={setPassword} secureTextEntry />
+                <CrystalInput label="Confirm" voice="rider" placeholder="Type it again" value={confirm} onChangeText={setConfirm} secureTextEntry />
+                <CrystalButton title="Save password" voice="rider" onPress={save} loading={saving} />
+            </RainLogin>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1 },
-    content: { flex: 1, paddingHorizontal: 24 },
-    iconCircle: {
-        width: 72, height: 72, borderRadius: 36, alignSelf: 'center',
-        alignItems: 'center', justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.06)', marginBottom: 20,
-    },
-    title: { color: '#EAF3F6', fontSize: 26, fontWeight: '700', textAlign: 'center' },
-    subtitle: { color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', marginTop: 8, marginBottom: 28 },
-    label: { color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1.5, marginBottom: 8, marginTop: 6 },
-    input: {
-        backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-        borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, color: '#FFF', fontSize: 16, marginBottom: 12,
-    },
-    button: { marginTop: 16, borderRadius: 16, overflow: 'hidden' },
-    buttonFill: { paddingVertical: 16, alignItems: 'center' },
-    buttonText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-    cancel: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+    title: { color: '#EAF3F6', fontSize: 22, fontWeight: '800', textAlign: 'center' },
+    body: { color: 'rgba(234,243,246,0.7)', fontSize: 15, lineHeight: 21, textAlign: 'center', marginBottom: 4 },
+    error: { color: '#FF6B6B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    linkText: { color: 'rgba(234,243,246,0.55)', fontSize: 14, fontWeight: '500' },
 });

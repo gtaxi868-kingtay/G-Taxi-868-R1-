@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, SafeAreaView, Alert,
-} from 'react-native';
+import { View, FlatList, Pressable, RefreshControl } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import type { AppStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
+import { toast } from '../components/Toast';
+import { BrandBadge, Button, Card, EmptyState, GUTTER, Header, Loading, Row, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
-const BRAND = '#FF2D55';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'Carnival'>;
 
@@ -106,387 +107,116 @@ export default function CarnivalScreen() {
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 
   const joinBand = async (bandId: string) => {
-    if (!profile?.id) { Alert.alert('Sign in required', 'Create an account to join a band.'); return; }
+    if (!profile?.id) { toast('Sign in to join a band.', 'error'); return; }
     try {
       const { error } = await supabase.from('band_members').insert({ rider_id: profile.id, band_id: bandId });
       if (error) {
-        if (error.code === '23505') { Alert.alert('Already joined', 'You are already a member of this band.'); }
-        else { Alert.alert('Error', error.message); }
+        if (error.code === '23505') { toast('You are already in this band.'); }
+        else { toast(error.message, 'error'); }
         return;
       }
-      Alert.alert('Joined!', 'You are now a member of this band. Tap a band keychain at fetes to earn revshare on your rides.');
+      toast('You joined the band. Tap their keychain at fetes to link your rides.', 'success');
       fetchData();
-    } catch (err: any) { Alert.alert('Error', err.message); }
+    } catch (err: any) { toast(err.message || 'Could not join.', 'error'); }
   };
 
-  const rideToVenue = (ev: Event) => {
+  // Same fix as Events: send the rider's real location as the pickup.
+  const rideToVenue = async (ev: Event) => {
+    let pickup: { latitude: number; longitude: number; address: string } | undefined;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const pos = (await Location.getLastKnownPositionAsync()) || (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        if (pos) pickup = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, address: 'Current location' };
+      }
+    } catch { /* falls through */ }
+    if (!pickup) { toast('Turn on location so we know where to pick you up.', 'error'); return; }
     (navigation.navigate as any)('RideConfirmation', {
+      pickup,
       destination: { latitude: ev.lat, longitude: ev.lng, address: ev.venue },
       source: 'carnival',
       sourceMetadata: { band_id: ev.band_id, carnival_event_id: ev.id },
     });
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={s.container}>
-        <ActivityIndicator size="large" color={BRAND} style={{ marginTop: 60 }} />
-      </SafeAreaView>
-    );
-  }
+  const m = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>Carnival</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <FlatList
-        data={bands}
-        keyExtractor={(b) => b.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
-        ListHeaderComponent={() => (
-          <>
-            {myMembership && (
-              <View style={s.membershipCard}>
-                <Ionicons name="musical-notes" size={28} color={BRAND} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={s.membershipLabel}>Your Band</Text>
-                  <Text style={s.membershipName}>{myMembership.bands?.name}</Text>
-                  <Text style={s.membershipDate}>
-                    Member since {new Date(myMembership.joined_at).toLocaleDateString()}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {myRevshare.length > 0 && (
-              <View style={s.revshareCard}>
-                <Text style={s.revshareTitle}>Ride Revenue Share</Text>
-                {myRevshare.map((rs) => (
-                  <View key={rs.band_id} style={s.revshareRow}>
-                    <Text style={s.revshareBand}>{rs.band_name}</Text>
-                    <Text style={s.revshareStats}>
-                      {rs.total_rides} ride{rs.total_rides !== 1 ? 's' : ''} · TTD ${(rs.total_revshare_cents / 100).toFixed(2)} earned
-                    </Text>
+    <View style={{ flex: 1, backgroundColor: m.page }}>
+      <StatusBar style={m.statusBar} />
+      <Header title="Carnival" onBack={() => navigation.goBack()} />
+      {loading ? <Loading /> : (
+        <FlatList
+          data={bands}
+          keyExtractor={(b) => b.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={m.accent} />}
+          contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + SPACE.xxl }}
+          ListHeaderComponent={
+            <>
+              {myMembership && (
+                <Card style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.sm }}>
+                  <BrandBadge icon="musical-notes" size={48} round />
+                  <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                    <Txt variant="caption" tone="dim">Your band</Txt>
+                    <Txt variant="title">{myMembership.bands?.name}</Txt>
+                    <Txt variant="caption" tone="faint">Member since {new Date(myMembership.joined_at).toLocaleDateString()}</Txt>
                   </View>
-                ))}
-              </View>
-            )}
-
-            <Text style={s.sectionTitle}>Mas Bands</Text>
-            <Text style={s.sectionSub}>Tap a keychain at your band's event to link your rides</Text>
-          </>
-        )}
-        renderItem={({ item: band }) => {
-          const bandEvents = events.filter((e) => e.band_id === band.id);
-          const isSelected = selectedBand === band.id;
-          return (
-            <TouchableOpacity
-              style={s.bandCard}
-              onPress={() => setSelectedBand(isSelected ? null : band.id)}
-              activeOpacity={0.7}
-            >
-              <View style={s.bandRow}>
-                <View style={s.bandAvatar}>
-                  <Ionicons name="musical-note" size={24} color="#fff" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={s.bandName}>{band.name}</Text>
-                  <Text style={s.bandDesc} numberOfLines={2}>{band.description}</Text>
-                </View>
-                <Ionicons
-                  name={isSelected ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#666"
-                />
-              </View>
-
-              {isSelected && (
-                <View style={s.bandDetail}>
-                  {bandEvents.length === 0 ? (
-                    <Text style={s.noEvents}>No upcoming fetes listed yet</Text>
-                  ) : (
-                    bandEvents.map((ev) => (
-                      <View key={ev.id} style={s.eventCard}>
-                        <Text style={s.eventName}>{ev.name}</Text>
-                        <Text style={s.eventVenue}>
-                          <Ionicons name="location" size={14} color="#999" /> {ev.venue}
-                        </Text>
-                        <View style={s.eventMeta}>
-                          <Text style={s.eventDate}>
-                            {new Date(ev.event_date).toLocaleDateString('en-US', {
-                              weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                            })}
-                          </Text>
-                          {ev.ticket_price_cents > 0 && (
-                            <Text style={s.eventPrice}>
-                              TTD ${(ev.ticket_price_cents / 100).toFixed(2)}
-                            </Text>
-                          )}
-                        </View>
-                        {ev.lat && ev.lng && (
-                          <TouchableOpacity
-                            style={s.rideBtn}
-                            onPress={() => rideToVenue(ev)}
-                          >
-                            <Ionicons name="car" size={16} color="#fff" />
-                            <Text style={s.rideBtnText}>Ride to venue</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    ))
-                  )}
-
-                  <TouchableOpacity style={s.joinBtn} onPress={() => joinBand(band.id)}>
-                    <Ionicons name="add-circle" size={18} color="#fff" />
-                    <Text style={s.joinBtnText}>Join this Band</Text>
-                  </TouchableOpacity>
-
-                  <View style={s.keychainHint}>
-                    <Ionicons name="radio" size={16} color={BRAND} />
-                    <Text style={s.keychainHintText}>
-                      Tap an NFC keychain at your band's event to link rides and earn revshare
-                    </Text>
-                  </View>
-                </View>
+                </Card>
               )}
-            </TouchableOpacity>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={{ padding: 40, alignItems: 'center' }}>
-            <Ionicons name="musical-notes-outline" size={48} color="#444" />
-            <Text style={s.emptyText}>No carnival bands available yet</Text>
-          </View>
-        }
-        contentContainerStyle={s.listContent}
-      />
-    </SafeAreaView>
+              {myRevshare.length > 0 && (
+                <Section title="What your rides earned your band">
+                  <Card style={{ paddingVertical: SPACE.xs }}>
+                    {myRevshare.map((rs, i) => (
+                      <Row key={rs.band_id} title={rs.band_name} subtitle={`${rs.total_rides} ride${rs.total_rides !== 1 ? 's' : ''}`} last={i === myRevshare.length - 1}
+                        right={<Txt variant="bodyStrong" tone="success">TT${(rs.total_revshare_cents / 100).toFixed(2)}</Txt>} />
+                    ))}
+                  </Card>
+                </Section>
+              )}
+              <Txt variant="overline" tone="faint" style={{ marginTop: SPACE.xl }}>MAS BANDS</Txt>
+              <Txt variant="caption" tone="dim" style={{ marginTop: 2, marginBottom: SPACE.md }}>Tap your band's G keychain at their events to link your rides.</Txt>
+            </>
+          }
+          renderItem={({ item: band }) => {
+            const bandEvents = events.filter((e) => e.band_id === band.id);
+            const open = selectedBand === band.id;
+            return (
+              <Card style={{ marginBottom: SPACE.md }}>
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setSelectedBand(open ? null : band.id)}
+                  style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="musical-note" size={20} color={m.accent} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                    <Txt variant="headline">{band.name}</Txt>
+                    {band.description ? <Txt variant="caption" tone="dim" numberOfLines={2}>{band.description}</Txt> : null}
+                  </View>
+                  <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={m.faint} />
+                </Pressable>
+                {open && (
+                  <View style={{ marginTop: SPACE.md }}>
+                    {bandEvents.length === 0 ? <Txt variant="body" tone="dim">No upcoming fetes listed yet.</Txt> : bandEvents.map((ev) => (
+                      <View key={ev.id} style={{ paddingVertical: SPACE.md, borderTopWidth: 1, borderTopColor: m.chipBorder }}>
+                        <Txt variant="bodyStrong">{ev.name}</Txt>
+                        <Txt variant="caption" tone="dim">
+                          {ev.venue} · {new Date(ev.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} {new Date(ev.event_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          {ev.ticket_price_cents > 0 ? ` · TT$${(ev.ticket_price_cents / 100).toFixed(2)}` : ''}
+                        </Txt>
+                        {ev.lat && ev.lng ? <Button title="Ride there" icon="car-outline" size="sm" variant="secondary" style={{ alignSelf: 'flex-start', marginTop: SPACE.sm }} onPress={() => rideToVenue(ev)} /> : null}
+                      </View>
+                    ))}
+                    {myMembership?.band_id !== band.id && (
+                      <Button title="Join this band" size="md" style={{ marginTop: SPACE.md }} onPress={() => joinBand(band.id)} />
+                    )}
+                  </View>
+                )}
+              </Card>
+            );
+          }}
+          ListEmptyComponent={<EmptyState icon="musical-notes-outline" title="No bands yet" body="Mas bands will show up here as they join." />}
+        />
+      )}
+    </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#07070F',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A2E',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1A1A2E',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  listContent: {
-    paddingBottom: 40,
-  },
-  membershipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1A2E',
-    margin: 16,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BRAND + '40',
-  },
-  membershipLabel: {
-    fontSize: 11,
-    color: BRAND,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  membershipName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    marginTop: 2,
-  },
-  membershipDate: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  revshareCard: {
-    backgroundColor: '#1A1A2E',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 16,
-  },
-  revshareTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 12,
-  },
-  revshareRow: {
-    marginBottom: 8,
-  },
-  revshareBand: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  revshareStats: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginHorizontal: 16,
-    marginTop: 8,
-  },
-  sectionSub: {
-    fontSize: 13,
-    color: '#666',
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  bandCard: {
-    backgroundColor: '#13132B',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    padding: 16,
-  },
-  bandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bandAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: BRAND + '30',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bandName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  bandDesc: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  bandDetail: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#1A1A2E',
-  },
-  eventCard: {
-    backgroundColor: '#0D0D1A',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  eventName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  eventVenue: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 6,
-  },
-  eventMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  eventDate: {
-    fontSize: 12,
-    color: BRAND,
-    fontWeight: '500',
-  },
-  eventPrice: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  joinBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BRAND,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  joinBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    marginLeft: 6,
-  },
-  rideBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#34E6EC',
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  rideBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-    marginLeft: 6,
-  },
-  noEvents: {
-    fontSize: 13,
-    color: '#666',
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  keychainHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: BRAND + '15',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  keychainHintText: {
-    fontSize: 12,
-    color: BRAND,
-    marginLeft: 8,
-    flex: 1,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#444',
-    marginTop: 12,
-  },
-});

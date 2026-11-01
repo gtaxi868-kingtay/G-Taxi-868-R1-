@@ -1,4 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -23,7 +25,8 @@ export type RideConfirmationParams = {
   kioskId?: string;
   taxiStandId?: string;
   editPickupMode?: boolean;
-  stop?: { name: string; latitude: number; longitude: number };
+  // A stop chosen before booking; see utils/shopStop.ts.
+  stop?: { name: string; latitude: number; longitude: number; address?: string; merchantId?: string; storeType?: string };
 };
 
 export type ActiveRideParams = {
@@ -88,18 +91,32 @@ export type TagMarkerParams = {
   tagUid?: string;
 };
 
+// Params the Map tab (the old Home screen) accepts: QR taxi-stand deep links
+// and NFC taps.
+export type MapParams = {
+  lat?: string;
+  lng?: string;
+  stand?: string;
+  source?: string;
+  nfcTagId?: string;
+  nfcLat?: string;
+  nfcLng?: string;
+  nfcLocation?: string;
+  editPickupMode?: boolean;
+};
+
+// The five bottom tabs. They live inside the stack route named "Home", so
+// every existing navigate('Home') / reset to 'Home' still lands on the tabs.
+export type MainTabParamList = {
+  Map: MapParams | undefined;
+  Services: undefined;
+  Activity: undefined;
+  WalletTab: undefined;
+  You: undefined;
+};
+
 export type AppStackParamList = {
-  Home: {
-    lat?: string;
-    lng?: string;
-    stand?: string;
-    source?: string;
-    nfcTagId?: string;
-    nfcLat?: string;
-    nfcLng?: string;
-    nfcLocation?: string;
-    editPickupMode?: boolean;
-  };
+  Home: NavigatorScreenParams<MainTabParamList> | undefined;
   Profile: undefined;
   Notifications: undefined;
   DestinationSearch: {
@@ -112,6 +129,8 @@ export type AppStackParamList = {
     // Opened from Saved Places "Add new place": picking a result saves it
     // instead of booking a ride.
     saveMode?: boolean;
+    // A shop to stop at on the way (Home shop card "Stop on my way").
+    stop?: RideConfirmationParams['stop'];
   };
   RideConfirmation: RideConfirmationParams;
   RideReview: {
@@ -211,3 +230,10 @@ export type RootStackParamList = AppStackParamList;
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
 export type AppScreenProps<T extends keyof AppStackParamList> = NativeStackScreenProps<AppStackParamList, T>;
+
+// Props for a screen shown as a bottom tab: tab navigation plus everything the
+// parent stack can do (navigate to any app screen, replace, reset).
+export type TabScreenProps<T extends keyof MainTabParamList> = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, T>,
+  NativeStackScreenProps<AppStackParamList>
+>;

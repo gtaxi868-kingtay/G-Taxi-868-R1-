@@ -1,7 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { Button, EmptyState, Screen, Txt } from '../ui/kit';
 
 interface Props {
   children: ReactNode;
@@ -42,86 +40,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      return (
-        <View style={styles.container}>
-          <StatusBar style="light" />
-          <View style={styles.content}>
-            <Text style={styles.title}>Something went wrong</Text>
-            <Text style={styles.subtitle}>
-              G-Taxi encountered an unexpected error.
-            </Text>
-            
-            <View style={styles.errorBox}>
-              <ScrollView>
-                <Text style={styles.errorText}>
-                  {this.state.error?.toString()}
-                </Text>
-              </ScrollView>
-            </View>
-
-            <TouchableOpacity 
-              style={styles.button} 
-              onPress={this.handleRetry}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.buttonText}>Try Again</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      );
+      return <CrashScreen error={this.state.error} onRetry={this.handleRetry} />;
     }
-
     return this.props.children;
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  content: {
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#EAF3F6',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#A0A0A0',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  errorBox: {
-    backgroundColor: '#1A1A1A',
-    padding: 16,
-    borderRadius: 8,
-    width: '100%',
-    maxHeight: 200,
-    marginBottom: 24,
-    ...ghostBorder(0.2),
-  },
-  errorText: {
-    color: '#FF6B6B',
-    fontFamily: 'monospace',
-    fontSize: 12,
-  },
-  button: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#EAF3F6',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+function CrashScreen({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
+  return (
+    <Screen footer={<Button title="Try again" onPress={onRetry} />}>
+      <EmptyState icon="alert-circle-outline" title="Something went wrong" body="G 868 hit an unexpected problem. Try again, and if it keeps happening, call us on 1-868-703-1000." />
+      {__DEV__ && error ? <Txt variant="caption" tone="faint" style={{ textAlign: 'center' }}>{error.toString()}</Txt> : null}
+    </Screen>
+  );
+}

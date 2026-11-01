@@ -14,6 +14,6 @@ describe('LaundryLandingScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const { getByText } = render(<LaundryLandingScreen navigation={navigation as any} />);
-    expect(getByText(/Laundry Service/i)).toBeTruthy();
+    expect(getByText(/Fresh laundry, picked up from you/i)).toBeTruthy();
   });
 });

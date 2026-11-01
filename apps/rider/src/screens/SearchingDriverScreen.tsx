@@ -1,45 +1,33 @@
 import React, { useEffect, useState, useRef } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, Alert,
-    useWindowDimensions, Platform, BackHandler, Image
-} from 'react-native';
+import { View, StyleSheet, Alert, Modal, useWindowDimensions } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
     useSharedValue, withTiming, withRepeat,
     useAnimatedStyle, withDelay, Easing,
-    FadeIn,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { BrandBadge, Button, Card, GUTTER, RADIUS, SPACE, Txt, useTheme } from '../ui/kit';
 import { ENV } from '@g868/shared/env';
 import { supabase } from '@gtaxi/core';
 import { cancelRide, matchDriver } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 import { CancelReasonSheet } from '../components/CancelReasonSheet';
 
-const WARNING = '#F59E0B';
-const ERROR = '#FF4D6D';
-const CYAN = '#00E5FF';
-
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: SURFACE.base }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: VOICES.rider.accent }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: SURFACE.base }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: SURFACE.containerLow }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: VOICES.rider.accent, weight: 0.5 }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
+    { elementType: 'geometry', stylers: [{ color: '#0B0814' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#B9AEFF' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0B0814' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1C1626' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0E1A24' }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
 
 export function SearchingDriverScreen({ route, navigation }: any) {
-    const { width } = useWindowDimensions();
+    const { height } = useWindowDimensions();
     const { rideId, destination, fare, pickup, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 
@@ -73,7 +61,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         );
 
         // Cancel button: Delayed 3s before appearing
-        cancelOpacity.value = withDelay(3000, withTiming(1, { duration: 800 }));
+        cancelOpacity.value = withDelay(1500, withTiming(1, { duration: 400 }));
 
         // Dots Animation
         const dotInterval = setInterval(() => {
@@ -109,10 +97,6 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         };
         checkPreferred();
 
-        // Haptics: Light pulse every 2.5s
-        const hapticInterval = setInterval(() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }, 2500);
 
         // Helper: navigate to DriverFound confirmation, which then routes to ActiveRide
         const goToActiveRide = async (driverId: string, pmOverride?: string) => {
@@ -263,7 +247,6 @@ export function SearchingDriverScreen({ route, navigation }: any) {
 
         return () => {
             clearInterval(dotInterval);
-            clearInterval(hapticInterval);
             clearInterval(pollTimer);
             sub.unsubscribe();
             // Fix 3: Unsubscribe offersChannel to prevent state updates on unmounted component
@@ -291,414 +274,126 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         await cancelRide(rideId, reasonCode);
         if (!silent) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate('Home');
+            navigation.navigate('Home', { screen: 'Map' });
         }
     };
 
-    return (
-        <View style={s.root} pointerEvents="box-none">
-            <StatusBar style="light" />
+    const cancelStyle = useAnimatedStyle(() => ({ opacity: cancelOpacity.value }));
+    const m = useTheme();
+    const night = m.key === 'night';
+    const tileStyle = night ? 'navigation-night-v1' : 'light-v11';
 
-            {/* Background: Full Screen Map with Blueberry Luxe Dark Style */}
+    return (
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
-                customMapStyle={DARK_MAP_STYLE}
-                initialRegion={{
-                    latitude: pickup?.latitude || 10.66,
-                    longitude: pickup?.longitude || -61.51,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05
-                }}
-                userInterfaceStyle="dark"
+                customMapStyle={night ? DARK_MAP_STYLE : []}
+                initialRegion={{ latitude: pickup?.latitude || 10.66, longitude: pickup?.longitude || -61.51, latitudeDelta: 0.03, longitudeDelta: 0.03 }}
+                userInterfaceStyle={night ? 'dark' : 'light'}
+                scrollEnabled={false}
             >
                 {ENV.MAPBOX_PUBLIC_TOKEN && (
-                    <UrlTile
-                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
-                        shouldReplaceMapContent={true}
-                    />
+                    <UrlTile key={tileStyle} urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent={true} />
                 )}
             </MapView>
+            <LinearGradient pointerEvents="none" colors={[m.page + 'CC', 'transparent', m.page]} locations={[0, 0.4, 0.75]} style={StyleSheet.absoluteFillObject} />
 
-            {/* Deep Gradient Overlay */}
-            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-                <LinearGradient 
-                    colors={['rgba(13,11,30,0.7)', 'transparent', 'rgba(13,11,30,0.9)']} 
-                    style={StyleSheet.absoluteFillObject} 
-                />
+            {/* Pulse over the pickup point */}
+            <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: height * 0.5, alignItems: 'center', justifyContent: 'center' }}>
+                <Radar animation={radarRadius} opacity={radarOpacity} />
             </View>
 
-            <Radar animation={radarRadius} opacity={radarOpacity} />
-
-            {/* Status Overlay */}
-            <View style={[s.content, { bottom: insets.bottom + 40 }]}>
+            {/* Status + cancel, at the bottom */}
+            <View style={{ position: 'absolute', left: GUTTER, right: GUTTER, bottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
                 {isPriorityContact && preferredDriver && (
-                    <Reanimated.View entering={FadeIn} style={s.priorityCard}>
-                        <LinearGradient 
-                            colors={['rgba(245, 158, 11, 0.15)', 'rgba(0, 229, 255, 0.08)']} 
-                            style={StyleSheet.absoluteFillObject} 
-                        />
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                            <Ionicons name="star" size={24} color={WARNING} />
-                            <View>
-                                <Text style={s.priorityTitle}>CONTACTING PREFERRED DRIVER</Text>
-                                <Text style={s.prioritySubtitle}>{preferredDriver?.name} is nearby</Text>
-                            </View>
+                    <Card style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACE.md }}>
+                        <Ionicons name="star" size={20} color={m.accent} />
+                        <View style={{ marginLeft: SPACE.md, flex: 1 }}>
+                            <Txt variant="bodyStrong">Asking your favourite driver first</Txt>
+                            <Txt variant="caption" tone="dim">{preferredDriver?.name} is nearby</Txt>
                         </View>
-                    </Reanimated.View>
+                    </Card>
                 )}
 
-                {/* Status Card - Liquid Glass */}
-                <LiquidGlass tier="panel" voice="rider" style={s.statusCard}>
+                {showRejectionToast && (
+                    <Card style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACE.md }}>
+                        <Ionicons name="people-outline" size={18} color={m.accent} />
+                        <Txt variant="body" style={{ marginLeft: SPACE.md, flex: 1 }}>Drivers nearby are busy. Looking a little further{dots}</Txt>
+                    </Card>
+                )}
+
+                <Card style={{ padding: SPACE.xl, alignItems: 'center' }}>
                     {isInQueue ? (
                         <>
-                            <Text style={s.queueTitle}>
-                                You're in the queue ⏳
-                            </Text>
-                            <Text style={s.statusSubtitle}>
-                                No drivers are available near you right now. We'll notify you the moment one becomes free — no need to cancel or restart.
-                            </Text>
+                            <Txt variant="title" style={{ textAlign: 'center' }}>You're next in line</Txt>
+                            <Txt variant="body" tone="dim" style={{ textAlign: 'center', marginTop: SPACE.sm }}>
+                                Every driver nearby is on a trip. We'll match you the moment one is free. No need to cancel or try again.
+                            </Txt>
                         </>
                     ) : (
                         <>
-                            <Text style={s.statusTitle}>
-                                {isPriorityContact ? 'Priority Match' : 'Finding your G-Taxi'}{dots}
-                            </Text>
-                            <Text style={s.statusSubtitle}>
-                                {isPriorityContact 
-                                    ? `Securing ${preferredDriver?.name} for your trip...` 
-                                    : 'Contacting drivers nearby...'}
-                            </Text>
+                            <Txt variant="hero" style={{ textAlign: 'center', fontSize: 30, lineHeight: 36 }}>
+                                {isPriorityContact ? 'Asking your driver' : 'Finding your driver'}{dots}
+                            </Txt>
+                            <Txt variant="body" tone="dim" style={{ textAlign: 'center', marginTop: SPACE.sm }}>
+                                {destination?.address ? `To ${destination.address.split(',')[0]}` : 'Contacting drivers near you'}
+                                {fare?.total_fare_cents ? ` · about $${(fare.total_fare_cents / 100).toFixed(2)}` : ''}
+                            </Txt>
                         </>
                     )}
-                </LiquidGlass>
+                </Card>
 
-                {/* Cancel Button - Ghost Style */}
-                <Reanimated.View style={[s.cancelWrap, { opacity: cancelOpacity }]}>
-                    <TouchableOpacity 
-                        style={s.cancelBtn} 
-                        onPress={() => setReasonOpen(true)}
-                        disabled={isCanceling}
-                    >
-                        <Text style={s.cancelText}>Cancel Request</Text>
-                    </TouchableOpacity>
-                    <CancelReasonSheet visible={reasonOpen} onPick={(code) => handleCancel(false, code)} onClose={() => setReasonOpen(false)} />
+                <Reanimated.View style={[{ marginTop: SPACE.md }, cancelStyle]}>
+                    <Button title="Cancel request" variant="ghost" disabled={isCanceling} onPress={() => setReasonOpen(true)} />
                 </Reanimated.View>
+                <CancelReasonSheet visible={reasonOpen} onPick={(code) => handleCancel(false, code)} onClose={() => setReasonOpen(false)} />
             </View>
 
-            {/* FIX F6: Rejection Toast */}
-            {showRejectionToast && (
-                <View style={s.rejectionToast}>
-                    <Ionicons name="people-outline" size={20} color="#07070F" />
-                    <Text style={s.rejectionToastText}>
-                        Drivers are busy. Expanding search{dots}
-                    </Text>
+            {/* Favourite driver is on another trip */}
+            <Modal visible={showNegotiation} transparent animationType="fade" onRequestClose={() => setShowNegotiation(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                        <Txt variant="title">{preferredDriver?.name} is on another trip</Txt>
+                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>
+                            You can wait for your favourite driver, or take the nearest driver now.
+                        </Txt>
+                        <Button title="Take the nearest driver" style={{ marginTop: SPACE.xl }} onPress={() => {
+                            setShowNegotiation(false); setPreferredDriver(null); setIsPriorityContact(false);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }} />
+                        <Button title={`Wait for ${preferredDriver?.name || 'my driver'}`} variant="ghost" style={{ marginTop: SPACE.md }} onPress={() => {
+                            setShowNegotiation(false); setIsPriorityContact(true);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        }} />
+                    </View>
                 </View>
-            )}
-
-            {/* AI NEGOTIATION OVERLAY */}
-            {showNegotiation && (
-                <Reanimated.View entering={FadeIn} style={[StyleSheet.absoluteFillObject, { zIndex: 1000 }]}>
-                    <BlurView intensity={90} tint="dark" style={s.lockBlur}>
-                        <View style={[s.negotiationCard, { width: width * 0.85 }]}>
-                            <View style={s.aiAvatar}>
-                                <LinearGradient 
-                                    colors={[VOICES.rider.accent, CYAN]} 
-                                    style={StyleSheet.absoluteFillObject} 
-                                />
-                                <Ionicons name="star" size={24} color="#EAF3F6" />
-                            </View>
-                            
-                            <Text style={s.negotiationTitle}>CONCIERGE UPDATE</Text>
-                            
-                            <Text style={s.negotiationText}>
-                                Your favored driver, <Text style={s.negotiationHighlight}>{preferredDriver?.name}</Text>, is finishing a trip 8 mins away.
-                                {"\n\n"}Would you like to wait for them, or find the nearest driver (2 mins)?
-                            </Text>
-
-                            <View style={{ width: '100%', gap: 12, marginTop: 32 }}>
-                                <TouchableOpacity 
-                                    style={s.waitBtn} 
-                                    onPress={() => {
-                                        setShowNegotiation(false);
-                                        setIsPriorityContact(true);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    }}
-                                >
-                                    <Text style={s.waitBtnText}>Wait for {preferredDriver?.name}</Text>
-                                </TouchableOpacity>
-                                
-                                <TouchableOpacity 
-                                    style={s.skipBtn} 
-                                    onPress={() => {
-                                        setShowNegotiation(false);
-                                        setPreferredDriver(null);
-                                        setIsPriorityContact(false);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    }}
-                                >
-                                    <Text style={s.skipBtnText}>Find Nearest Driver</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </BlurView>
-                </Reanimated.View>
-            )}
-
+            </Modal>
         </View>
     );
 }
 
 function Radar({ animation, opacity }: any) {
-    const ring1Style = useAnimatedStyle(() => ({
-        width: animation.value,
-        height: animation.value,
-        borderRadius: animation.value / 2,
-        opacity: opacity.value,
+    const ring = (scale: number, alpha: number, color: string) => useAnimatedStyle(() => ({
+        position: 'absolute',
+        width: animation.value * scale,
+        height: animation.value * scale,
+        borderRadius: (animation.value * scale) / 2,
+        opacity: opacity.value * alpha,
         borderWidth: 2,
-        borderColor: CYAN,
+        borderColor: color,
     }));
-    
-    const ring2Style = useAnimatedStyle(() => ({
-        width: animation.value * 0.7,
-        height: animation.value * 0.7,
-        borderRadius: (animation.value * 0.7) / 2,
-        opacity: opacity.value * 0.7,
-        borderWidth: 1.5,
-        borderColor: VOICES.rider.accent,
-    }));
-    
-    const ring3Style = useAnimatedStyle(() => ({
-        width: animation.value * 0.4,
-        height: animation.value * 0.4,
-        borderRadius: (animation.value * 0.4) / 2,
-        opacity: opacity.value * 0.4,
-        borderWidth: 1,
-        borderColor: CYAN,
-    }));
-
+    const r1 = ring(1, 1, '#3FD9E8');
+    const r2 = ring(0.7, 0.7, '#8B7CFF');
+    const r3 = ring(0.4, 0.5, '#3FD9E8');
     return (
-        <View style={s.radarContainer}>
-            <Reanimated.View style={[s.radarRing, ring1Style]} />
-            <Reanimated.View style={[s.radarRing, ring2Style]} />
-            <Reanimated.View style={[s.radarRing, ring3Style]} />
-            <View style={s.radarCore}>
-                <LinearGradient 
-                    colors={[VOICES.rider.accent, VOICES.rider.accentDark]} 
-                    style={StyleSheet.absoluteFillObject} 
-                />
-                <Image 
-                    source={require('../../assets/logo.png')} 
-                    style={s.radarLogo}
-                    resizeMode="contain"
-                />
-                {/* Glow effect */}
-                <View style={s.radarGlow} />
-            </View>
+        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <Reanimated.View style={r1} />
+            <Reanimated.View style={r2} />
+            <Reanimated.View style={r3} />
+            <BrandBadge icon="car-sport" size={64} round />
         </View>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    
-    radarContainer: { 
-        ...StyleSheet.absoluteFillObject, 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-    },
-    radarRing: { 
-        position: 'absolute',
-        borderStyle: 'dashed',
-    },
-    radarCore: { 
-        width: 80, 
-        height: 80, 
-        borderRadius: 40, 
-        backgroundColor: VOICES.rider.accent, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...elevationGlow(10),
-        overflow: 'hidden',
-    },
-    radarLogo: {
-        width: 50,
-        height: 50,
-        zIndex: 10,
-    },
-    radarGlow: {
-        position: 'absolute',
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: VOICES.rider.accent,
-        opacity: 0.3,
-    },
-
-    content: { 
-        position: 'absolute', 
-        left: 24, 
-        right: 24, 
-        alignItems: 'center' 
-    },
-    
-    priorityCard: { 
-        width: '100%', 
-        padding: 18, 
-        borderRadius: 20, 
-        marginBottom: 16, 
-        overflow: 'hidden', 
-        ...ghostBorder(0.3),
-        backgroundColor: 'rgba(245, 158, 11, 0.05)',
-    },
-    priorityTitle: {
-        fontSize: 13,
-        fontWeight: '800',
-        color: WARNING,
-        letterSpacing: 0.5,
-    },
-    prioritySubtitle: {
-        fontSize: 13,
-        color: VOICES.rider.textMuted,
-        marginTop: 2,
-    },
-    
-    statusCard: {
-        borderRadius: 28,
-        padding: 28,
-        width: '100%',
-        overflow: 'hidden',
-        ...ghostBorder(0.2),
-        ...elevationGlow(6),
-    },
-    statusTitle: {
-        fontSize: 26,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        textAlign: 'center',
-        letterSpacing: -0.5,
-    },
-    queueTitle: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: WARNING,
-        textAlign: 'center',
-        letterSpacing: -0.5,
-    },
-    statusSubtitle: {
-        fontSize: 15,
-        fontWeight: '500',
-        color: VOICES.rider.textMuted,
-        textAlign: 'center',
-        marginTop: 12,
-        lineHeight: 22,
-    },
-
-    cancelWrap: { 
-        marginTop: 32, 
-        width: '100%' 
-    },
-    cancelBtn: { 
-        height: 56, 
-        borderRadius: 18, 
-        backgroundColor: 'rgba(255,77,109,0.1)', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...ghostBorder(0.25),
-    },
-    cancelText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: ERROR,
-        letterSpacing: 0.5,
-    },
-
-    lockBlur: { 
-        ...StyleSheet.absoluteFillObject, 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        padding: 20,
-        backgroundColor: 'rgba(20,17,34,0.95)',
-    },
-    negotiationCard: { 
-        padding: 28, 
-        borderRadius: 32, 
-        backgroundColor: SURFACE.containerLow, 
-        ...ghostBorder(0.2), 
-        alignItems: 'center',
-        ...elevationGlow(10),
-    },
-    aiAvatar: { 
-        width: 56, 
-        height: 56, 
-        borderRadius: 28, 
-        overflow: 'hidden', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...elevationGlow(15),
-    },
-    negotiationTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        marginTop: 20,
-        textAlign: 'center',
-        letterSpacing: 1,
-    },
-    negotiationText: {
-        fontSize: 15,
-        fontWeight: '400',
-        color: VOICES.rider.textMuted,
-        marginTop: 12,
-        textAlign: 'center',
-        lineHeight: 22,
-    },
-    negotiationHighlight: {
-        fontWeight: '700',
-        color: CYAN,
-    },
-    
-    waitBtn: { 
-        width: '100%', 
-        height: 56, 
-        borderRadius: 16, 
-        backgroundColor: CYAN, 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        ...elevationGlow(4),
-    },
-    waitBtnText: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: SURFACE.base,
-    },
-    skipBtn: { 
-        width: '100%', 
-        height: 56, 
-        borderRadius: 16, 
-        backgroundColor: 'rgba(255,255,255,0.05)', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...ghostBorder(0.1),
-    },
-    skipBtnText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#EAF3F6',
-    },
-
-    rejectionToast: {
-        position: 'absolute',
-        bottom: 200,
-        left: 20, right: 20,
-        backgroundColor: 'rgba(245, 158, 11, 0.95)',
-        paddingVertical: 16, paddingHorizontal: 20,
-        borderRadius: 16,
-        flexDirection: 'row', alignItems: 'center', gap: 12,
-        zIndex: 100,
-    },
-    rejectionToastText: {
-        color: SURFACE.base,
-        fontSize: 14, fontWeight: '700', flex: 1,
-    },
-});

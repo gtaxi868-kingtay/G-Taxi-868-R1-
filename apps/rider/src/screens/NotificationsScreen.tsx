@@ -1,8 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity,
-    FlatList, ActivityIndicator, RefreshControl,
-} from 'react-native';
+import { View, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -10,8 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { Button, EmptyState, GUTTER, Header, Loading, SPACE, Txt, useTheme } from '../ui/kit';
 import { AppScreenProps } from '../navigation/types';
 
 interface NotificationRow {
@@ -25,13 +21,13 @@ interface NotificationRow {
 
 // Maps a notification type to an icon + accent. Falls back to a neutral bell.
 const TYPE_META: Record<string, { icon: string; color: string }> = {
-    ride:     { icon: 'car-sport',      color: VOICES.rider.accent },
-    payment:  { icon: 'wallet',         color: '#10B981' },
+    ride:     { icon: 'car-sport',      color: '#8B7CFF' },
+    payment:  { icon: 'wallet',         color: '#2FB57C' },
     promo:    { icon: 'pricetag',       color: '#F59E0B' },
-    escape:   { icon: 'airplane',       color: '#CBD6DE' },
+    escape:   { icon: 'airplane',       color: '#3FD9E8' },
     grocery:  { icon: 'cart',           color: '#F59E0B' },
-    laundry:  { icon: 'shirt',          color: '#34E6EC' },
-    system:   { icon: 'information-circle', color: '#6D28D9' },
+    laundry:  { icon: 'shirt',          color: '#3FD9E8' },
+    system:   { icon: 'information-circle', color: '#8B7CFF' },
 };
 
 function timeAgo(iso: string): string {
@@ -119,182 +115,47 @@ export function NotificationsScreen({ navigation }: AppScreenProps<'Notification
         fetchNotifications();
     }, [fetchNotifications]);
 
-    const renderItem = ({ item }: { item: NotificationRow }) => {
-        const meta = TYPE_META[item.type || 'system'] || { icon: 'notifications', color: VOICES.rider.accent };
+    const m = useTheme();
+
+    const renderItem = ({ item, index }: { item: NotificationRow; index: number }) => {
+        const meta = TYPE_META[item.type || 'system'] || { icon: 'notifications', color: '#8B7CFF' };
         return (
-            <View style={[s.row, !item.is_read && s.rowUnread]}>
-                <View style={[s.rowIcon, { backgroundColor: `${meta.color}22` }]}>
-                    <Ionicons name={meta.icon as any} size={20} color={meta.color} />
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: SPACE.md, borderBottomWidth: index === items.length - 1 ? 0 : 1, borderBottomColor: m.chipBorder }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: `${meta.color}22`, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name={meta.icon as any} size={19} color={meta.color} />
                 </View>
-                <View style={s.rowBody}>
-                    <Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text>
-                    {item.body ? <Text style={s.rowText} numberOfLines={2}>{item.body}</Text> : null}
-                    <Text style={s.rowTime}>{timeAgo(item.created_at)}</Text>
+                <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                    <Txt variant="bodyStrong" numberOfLines={1}>{item.title}</Txt>
+                    {item.body ? <Txt variant="body" tone="dim" numberOfLines={3} style={{ marginTop: 2 }}>{item.body}</Txt> : null}
+                    <Txt variant="caption" tone="faint" style={{ marginTop: SPACE.xs }}>{timeAgo(item.created_at)}</Txt>
                 </View>
-                {!item.is_read && <View style={s.unreadDot} />}
+                {!item.is_read && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#8B7CFF', marginTop: 6, marginLeft: SPACE.sm }} />}
             </View>
         );
     };
 
-    const header = (
-        <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-            <TouchableOpacity
-                style={s.backBtn}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
-                accessibilityLabel="Go back"
-                accessibilityRole="button"
-            >
-                <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-            </TouchableOpacity>
-            <Text style={s.headerTitle}>Notifications</Text>
-            <View style={{ width: 44 }} />
-        </View>
-    );
-
-    // Offline — surface it honestly rather than showing a stale empty inbox.
-    if (netInfo.isConnected === false && items.length === 0 && !loading) {
-        return (
-            <View style={s.root}>
-                <StatusBar style="light" />
-                {header}
-                <View style={s.center}>
-                    <View style={s.emptyIconWrap}>
-                        <Ionicons name="cloud-offline-outline" size={36} color="rgba(242,245,248,0.4)" />
-                    </View>
-                    <Text style={s.emptyTitle}>You're offline</Text>
-                    <Text style={s.emptySub}>Reconnect to see your latest updates.</Text>
-                </View>
-            </View>
-        );
-    }
-
-    if (loading) {
-        return (
-            <View style={s.root}>
-                <StatusBar style="light" />
-                {header}
-                <View style={s.center}>
-                    <ActivityIndicator color={VOICES.rider.accent} size="large" />
-                </View>
-            </View>
-        );
-    }
-
-    if (errored) {
-        return (
-            <View style={s.root}>
-                <StatusBar style="light" />
-                {header}
-                <View style={s.center}>
-                    <View style={s.emptyIconWrap}>
-                        <Ionicons name="alert-circle-outline" size={36} color="#EF4444" />
-                    </View>
-                    <Text style={s.emptyTitle}>Couldn't load notifications</Text>
-                    <Text style={s.emptySub}>Pull down to try again.</Text>
-                    <TouchableOpacity
-                        style={s.retryBtn}
-                        onPress={onRefresh}
-                        accessibilityLabel="Retry loading notifications"
-                        accessibilityRole="button"
-                    >
-                        <Text style={s.retryText}>Retry</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }
+    const offline = netInfo.isConnected === false && items.length === 0 && !loading;
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-            {header}
-            <FlatList
-                data={items}
-                keyExtractor={(item) => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={[s.listContent, { paddingBottom: insets.bottom + 24 }]}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.rider.accent} />
-                }
-                ListEmptyComponent={
-                    <View style={s.center}>
-                        <View style={s.emptyIconWrap}>
-                            <Ionicons name="notifications-outline" size={36} color={VOICES.rider.accent} />
-                        </View>
-                        <Text style={s.emptyTitle}>You're all caught up</Text>
-                        <Text style={s.emptySub}>Ride updates, receipts and offers will land here.</Text>
-                    </View>
-                }
-            />
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+            <Header title="Notifications" onBack={() => { Haptics.selectionAsync(); navigation.goBack(); }} />
+            {loading ? <Loading /> : offline ? (
+                <EmptyState icon="cloud-offline-outline" title="You are offline" body="Reconnect to see your latest updates." />
+            ) : errored ? (
+                <EmptyState icon="alert-circle-outline" title="Could not load notifications" body="Check your connection and try again."
+                    action={<Button title="Try again" variant="secondary" onPress={onRefresh} />} />
+            ) : (
+                <FlatList
+                    data={items}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + SPACE.xxl }}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={m.accent} colors={['#8B7CFF']} />}
+                    ListEmptyComponent={<EmptyState icon="notifications-outline" title="You're all caught up" body="Ride updates, receipts and offers will show up here." />}
+                />
+            )}
         </View>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-    },
-    backBtn: {
-        width: 44, height: 44, borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center', justifyContent: 'center',
-        ...ghostBorder(0.1),
-    },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
-
-    listContent: { paddingHorizontal: 20, paddingTop: 4, gap: 10, flexGrow: 1 },
-
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        backgroundColor: SURFACE.containerLow,
-        borderRadius: 18,
-        padding: 14,
-        ...ghostBorder(0.06),
-    },
-    rowUnread: {
-        backgroundColor: SURFACE.containerHigh,
-        borderColor: 'rgba(52,230,236,0.18)',
-        borderWidth: 1,
-    },
-    rowIcon: {
-        width: 44, height: 44, borderRadius: 14,
-        alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-    },
-    rowBody: { flex: 1 },
-    rowTitle: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', fontFamily: 'Manrope-Bold' },
-    rowText: { fontSize: 13, color: 'rgba(242,245,248,0.6)', marginTop: 2, lineHeight: 18, fontFamily: 'Manrope-Regular' },
-    rowTime: { fontSize: 11, color: 'rgba(242,245,248,0.4)', marginTop: 6, fontWeight: '600' },
-    unreadDot: {
-        width: 8, height: 8, borderRadius: 4,
-        backgroundColor: VOICES.rider.accent,
-        flexShrink: 0,
-    },
-
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-    emptyIconWrap: {
-        width: 72, height: 72, borderRadius: 24,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        alignItems: 'center', justifyContent: 'center',
-        marginBottom: 16,
-        ...ghostBorder(0.08),
-    },
-    emptyTitle: { fontSize: 18, fontWeight: '800', color: '#EAF3F6', textAlign: 'center', fontFamily: 'SpaceGrotesk-Bold' },
-    emptySub: { fontSize: 14, color: 'rgba(242,245,248,0.5)', textAlign: 'center', marginTop: 6, lineHeight: 20, fontFamily: 'Manrope-Regular' },
-
-    retryBtn: {
-        marginTop: 20,
-        paddingHorizontal: 28, paddingVertical: 14,
-        borderRadius: 16,
-        backgroundColor: VOICES.rider.accent,
-    },
-    retryText: { fontSize: 15, fontWeight: '800', color: SURFACE.base },
-});

@@ -1,56 +1,33 @@
 import React, { useState } from 'react';
-import {
-    View, StyleSheet, FlatList, TouchableOpacity,
-    useWindowDimensions, Linking, ScrollView
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
+import { Linking, Pressable, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { Txt } from '@/design-system/primitives';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    border: 'rgba(255,255,255,0.15)',
-    purple: VOICES.rider.accent,
-    purpleLight: CYAN,
-    gold: '#F59E0B',
-    white: '#EAF3F6',
-    muted: 'rgba(255,255,255,0.7)',
-};
+import { Button, Card, Row, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
 const FAQ_ITEMS = [
     {
         question: 'How do I pay for my ride?',
-        answer: 'You can pay with Cash, Card, or G-Taxi Wallet. Select your preferred method before confirming your ride.',
-        icon: 'card-outline'
+        answer: 'Pay your driver in cash, or pay with G-Coin from your wallet. Choose before you confirm the ride.',
+        icon: 'cash-outline',
     },
     {
-        question: 'Vehicle sanitization policy',
-        answer: 'All G-Taxi partners follow strict hygiene protocols, including regular vehicle cleaning and sanitization.',
-        icon: 'shield-checkmark-outline'
+        question: 'I left something in the car',
+        answer: 'Open Your Trips, choose the ride, then tap "Report a problem with this trip" and pick Lost item. Our team will contact the driver for you.',
+        icon: 'search-outline',
     },
     {
-        question: 'Lost Item Recovery',
-        answer: 'If you left an item in a ride, go to Your Trips, select the ride, and tap "Report an Issue" to contact the driver.',
-        icon: 'search-outline'
+        question: 'How is my fare worked out?',
+        answer: 'The estimate uses distance and time. The final fare can change if the route changes a lot, or if the driver waits for you.',
+        icon: 'calculator-outline',
     },
     {
-        question: 'Estimated Fare Accuracy',
-        answer: 'Fare estimates include distance, time, and traffic. Final fares may vary slightly if the route changes significantly.',
-        icon: 'calculator-outline'
+        question: 'What happens if I press SOS?',
+        answer: 'G Guardian, a real person, is alerted with your ride and location, and you get buttons to call them straight away.',
+        icon: 'shield-checkmark-outline',
     },
 ];
 
 export function HelpScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
-    const insets = useSafeAreaInsets();
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
     const toggleFAQ = (index: number) => {
@@ -61,94 +38,33 @@ export function HelpScreen({ navigation }: any) {
     const handleEmail = () => Linking.openURL('mailto:support@gtaxi.tt');
     const handleCall = () => Linking.openURL('tel:+18687031000');
 
+    const m = useTheme();
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
+        <Screen title="Help" onBack={() => navigation.goBack()}>
+            <Section title="Common questions" style={{ marginTop: SPACE.sm }}>
+                {FAQ_ITEMS.map((item, idx) => {
+                    const open = expandedIndex === idx;
+                    return (
+                        <Card key={idx} style={{ marginBottom: SPACE.sm }}>
+                            <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => toggleFAQ(idx)}
+                                style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name={item.icon as any} size={20} color={m.accent} />
+                                <Txt variant="bodyStrong" style={{ flex: 1, marginHorizontal: SPACE.md }}>{item.question}</Txt>
+                                <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={m.faint} />
+                            </Pressable>
+                            {open && <Txt variant="body" tone="dim" style={{ marginTop: SPACE.md }}>{item.answer}</Txt>}
+                        </Card>
+                    );
+                })}
+            </Section>
 
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Help Center</Txt>
-            </View>
-
-            <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
-
-                <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 20 }}>Common Questions</Txt>
-
-                {FAQ_ITEMS.map((item, idx) => (
-                    <TouchableOpacity
-                        key={idx}
-                        style={[s.faqCard, expandedIndex === idx && s.faqCardActive]}
-                        onPress={() => toggleFAQ(idx)}
-                        activeOpacity={0.9}
-                    >
-                        <View style={s.faqHeader}>
-                            <View style={s.faqIconWrap}>
-                                <Ionicons name={item.icon as any} size={20} color={R.purpleLight} />
-                            </View>
-                            <Txt variant="bodyBold" color="#EAF3F6" style={{ flex: 1, marginLeft: 16 }}>{item.question}</Txt>
-                            <Ionicons
-                                name={expandedIndex === idx ? "chevron-up" : "chevron-down"}
-                                size={18}
-                                color={R.muted}
-                            />
-                        </View>
-                        {expandedIndex === idx && (
-                            <View style={s.faqBody}>
-                                <Txt variant="bodyReg" color={R.muted}>{item.answer}</Txt>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-                ))}
-
-                <View style={s.contactSection}>
-                    <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 16 }}>Need more help?</Txt>
-
-                    <TouchableOpacity style={s.callBtn} onPress={() => navigation.navigate('ReportProblem')}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Ionicons name="flag-outline" size={18} color="#EAF3F6" style={{ marginRight: 10 }} />
-                            <Txt variant="bodyBold" color={R.white}>Report a Problem / Request Refund</Txt>
-                        </View>
-                    </TouchableOpacity>
-                    <View style={{ height: 16 }} />
-
-                    <TouchableOpacity style={s.supportBtn} onPress={handleEmail}>
-                        <LinearGradient
-                            colors={[VOICES.rider.accent, CYAN]}
-                            start={{x: 0, y: 0}}
-                            end={{x: 1, y: 0}}
-                            style={s.btnGradient}
-                        >
-                            <Ionicons name="mail" size={20} color="#EAF3F6" style={{ marginRight: 12 }} />
-                            <Txt variant="bodyBold" color="#EAF3F6">EMAIL SUPPORT</Txt>
-                        </LinearGradient>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={s.callBtn} onPress={handleCall}>
-                        <Txt variant="bodyBold" color={R.white}>Call Hotline</Txt>
-                    </TouchableOpacity>
-                </View>
-
-            </ScrollView>
-        </View>
+            <Section title="Still need help?">
+                <Card style={{ paddingVertical: SPACE.xs }}>
+                    <Row icon="flag-outline" title="Report a problem" subtitle="Refunds, lost items, safety and more" onPress={() => navigation.navigate('ReportProblem')} />
+                    <Row icon="call-outline" title="Call us" subtitle="1-868-703-1000, day and night" onPress={handleCall} />
+                    <Row icon="mail-outline" title="Email support" subtitle="support@gtaxi.tt" onPress={handleEmail} last />
+                </Card>
+            </Section>
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-
-    scroll: { paddingHorizontal: 20 },
-    faqCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 20, marginBottom: 12, ...ghostBorder(0.05), overflow: 'hidden' },
-    faqCardActive: { borderColor: R.purple, backgroundColor: 'rgba(210,187,255,0.05)' },
-    faqHeader: { flexDirection: 'row', alignItems: 'center' },
-    faqIconWrap: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    faqBody: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-
-    contactSection: { marginTop: 40 },
-    supportBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginBottom: 16 },
-    btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    callBtn: { height: 64, borderRadius: 24, ...ghostBorder(0.05), alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' },
-});

@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StatusBar, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, Platform } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFonts, Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
+import { applyGlobalFont } from './src/theme/typography';
+import { ToastHost } from './src/components/Toast';
+import { MoodProvider, useTheme, Screen, EmptyState, Loading, Txt } from './src/ui/kit';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -25,24 +30,28 @@ import { SosScreen } from './src/screens/SosScreen';
 import { registerGuardianPush, GUARDIAN_PUSH_MESSAGES, type GuardianPushResult } from './src/lib/guardianPush';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
+// Every Text/TextInput gets Manrope at the right weight (see typography.ts).
+applyGlobalFont();
+
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
 const navigationRef = createNavigationContainerRef<AppStackParamList>();
 const ACCENT = VOICES.admin.accent;
 const BG = VOICES.admin.bg;
 
-function AuthNavigator() {
+function AuthNavigator({ initialRoute }: { initialRoute?: any } = {}) {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Signup" component={SignupScreen} />
     </AuthStack.Navigator>
   );
 }
 
-function AppNavigator() {
+function AppNavigator({ initialRoute }: { initialRoute?: any } = {}) {
+  const m = useTheme();
   return (
-    <AppStack.Navigator screenOptions={{ headerShown: false }}>
+    <AppStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: m.page }, animation: 'slide_from_right' }}>
       <AppStack.Screen name="Dashboard" component={DashboardScreen} />
       <AppStack.Screen name="Sos" component={SosScreen} />
       <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
@@ -61,15 +70,9 @@ function AppNavigator() {
 
 function UnauthorizedScreen() {
   return (
-    <View style={styles.unauthorized}>
-      <View style={styles.lockIcon}>
-        <Text style={styles.lockEmoji}>🔐</Text>
-      </View>
-      <Text style={styles.deniedTitle}>Access Denied</Text>
-      <Text style={styles.deniedDesc}>
-        You do not have admin privileges. Sign in with an admin account.
-      </Text>
-    </View>
+    <Screen>
+      <EmptyState icon="lock-closed-outline" title="This account is not an admin" body="Sign in with an admin account to use G 868 HQ." />
+    </Screen>
   );
 }
 
@@ -156,12 +159,12 @@ function RootNavigator() {
 
   if (loading || (user && adminState === 'checking')) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={ACCENT} />
-        <Text style={styles.loadingText}>
-          {!user ? 'Initializing...' : 'Verifying credentials...'}
-        </Text>
-      </View>
+      <Screen scroll={false}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Loading />
+          <Txt variant="body" tone="dim">{!user ? 'Starting up…' : 'Checking your admin access…'}</Txt>
+        </View>
+      </Screen>
     );
   }
   if (!user) return <AuthNavigator />;
@@ -177,17 +180,51 @@ function RootNavigator() {
 }
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({
+    Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
+    Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black,
+  });
+  const [fontTimedOut, setFontTimedOut] = useState(false);
+  useEffect(() => {
+    if (fontsLoaded || fontError) return;
+    const t = setTimeout(() => setFontTimedOut(true), 2500);
+    return () => clearTimeout(t);
+  }, [fontsLoaded, fontError]);
+  if (!fontsLoaded && !fontError && !fontTimedOut) return <View style={{ flex: 1, backgroundColor: '#0B0814' }} />;
+
+  // Screen gallery for design review (web only): /design-preview/screens?s=Dashboard&mood=day|night
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/design-preview/screens') {
+    const q = new URLSearchParams(window.location.search);
+    const s = q.get('s') || 'Dashboard';
+    const mq = q.get('mood');
+    const isAuth = s === 'Login' || s === 'Signup';
+    return (
+      <SafeAreaProvider>
+        <MoodProvider force={mq === 'day' || mq === 'night' ? mq : undefined}>
+          <AuthProvider>
+            <NavigationContainer>
+              {isAuth ? <AuthNavigator initialRoute={s} /> : <AppNavigator initialRoute={s} />}
+            </NavigationContainer>
+            <ToastHost />
+          </AuthProvider>
+        </MoodProvider>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <ErrorBoundary moduleName="AdminMobile">
       <SafeAreaProvider>
-        <AuthProvider>
-          <View style={{ flex: 1, backgroundColor: BG }}>
-            <StatusBar barStyle="light-content" backgroundColor={BG} />
-            <NavigationContainer ref={navigationRef}>
-              <RootNavigator />
-            </NavigationContainer>
-          </View>
-        </AuthProvider>
+        <MoodProvider>
+          <AuthProvider>
+            <View style={{ flex: 1 }}>
+              <NavigationContainer ref={navigationRef}>
+                <RootNavigator />
+              </NavigationContainer>
+              <ToastHost />
+            </View>
+          </AuthProvider>
+        </MoodProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

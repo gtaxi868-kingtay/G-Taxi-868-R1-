@@ -12,9 +12,9 @@ jest.mock('@gtaxi/design-system/utils/style-rules', () => ({ ghostBorder: () => 
 
 describe('ReceiptScreen', () => {
   it('renders without crashing', () => {
-    const navigation = { navigate: jest.fn(), goBack: jest.fn() };
+    const navigation = { navigate: jest.fn(), goBack: jest.fn(), canGoBack: () => true };
     const route = { params: { ride: { id: 'test', created_at: new Date().toISOString(), total_fare_cents: 2500, distance_meters: 5000, duration_seconds: 600, pickup_address: 'A', dropoff_address: 'B' }, rideId: 'test' } };
     const { getByText } = render(<ReceiptScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Base Fare/i)).toBeTruthy();
+    expect(getByText(/Trip fare/i)).toBeTruthy();
   });
 });

@@ -1,23 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity,
-    ScrollView, useWindowDimensions, ActivityIndicator, Alert
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { BRAND_GRADIENT, Button, Card, Loading, Row, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 import { AppScreenProps, AppStackParamList } from '../navigation/types';
 
 export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
-    const { width } = useWindowDimensions();
     const { user, profile, signOut } = useAuth();
-    const insets = useSafeAreaInsets();
 
     const [stats, setStats] = useState({ totalTrips: 0, rating: '—', memberSince: '' });
     const [loading, setLoading] = useState(true);
@@ -65,6 +57,8 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
         if (user?.id) {
             fetchProfileStats();
             fetchProgressionPerks();
+        } else {
+            setLoading(false);
         }
     }, [user?.id, fetchProfileStats]);
     
@@ -104,176 +98,80 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
         }
     };
 
-    const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Rider';
-    const menuItems: { label: string; icon: string; nav: keyof AppStackParamList; params?: any }[] = [
-        { label: 'Edit Profile', icon: 'person-outline', nav: 'EditProfile' },
+    const displayName = profile?.full_name || (profile as any)?.name || user?.email?.split('@')[0] || 'Rider';
+    const menuItems: { label: string; icon: any; nav: keyof AppStackParamList }[] = [
+        { label: 'Edit profile', icon: 'person-outline', nav: 'EditProfile' },
         { label: 'G-Level', icon: 'diamond-outline', nav: 'Subscription' },
-        { label: 'AI Assistant & Safety', icon: 'sparkles-outline', nav: 'AISettings' },
-        { label: 'AI Scanner', icon: 'scan-outline', nav: 'VisionScanner' },
-        { label: 'Payment Methods', icon: 'card-outline', nav: 'Wallet' },
-        { label: 'Saved Places', icon: 'location-outline', nav: 'SavedPlaces' },
+        { label: 'G assistant and safety', icon: 'sparkles-outline', nav: 'AISettings' },
+        { label: 'Photo scanner', icon: 'scan-outline', nav: 'VisionScanner' },
+        { label: 'Wallet and payment', icon: 'wallet-outline', nav: 'Wallet' },
+        { label: 'Saved places', icon: 'location-outline', nav: 'SavedPlaces' },
         { label: 'G Spot', icon: 'wine-outline', nav: 'GSpot' },
-        { label: 'Promos', icon: 'gift-outline', nav: 'Promo' },
-
-        { label: 'Support', icon: 'help-buoy-outline', nav: 'Help' },
-        { label: 'Legal & Privacy', icon: 'document-text-outline', nav: 'Legal' },
+        { label: 'Promotions', icon: 'gift-outline', nav: 'Promo' },
+        { label: 'Help', icon: 'help-buoy-outline', nav: 'Help' },
+        { label: 'Legal and privacy', icon: 'document-text-outline', nav: 'Legal' },
     ];
 
-    // Deletion is the 30-day request/cancel flow, which lives in Settings
-    // (confirmation step, status, and cancel). The old path here called a
-    // hard-delete and signed the rider out even if it failed.
+    // Deletion is the 30-day request/cancel flow, which lives in Settings.
     const handleDeleteAccount = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         navigation.navigate('Settings');
     };
 
-    if (loading) {
-        return (
-            <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator color={VOICES.rider.accent} size="large" />
-            </View>
-        );
-    }
+    const m = useTheme();
+    const tierLabel = progression.tier === 'g_member' ? 'G-Member' : `Level ${progression.level} · ${progression.label}`;
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-
-            <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-
-                <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                    </TouchableOpacity>
-                    <Text style={[s.headerTitle, { marginLeft: 16 }]}>Profile</Text>
-                </View>
-
-                <View style={s.hero}>
-                    <LinearGradient colors={[VOICES.rider.accent, VOICES.rider.accentDark]} style={s.avatarWrap}>
-                        <Text style={s.avatarLetter}>{displayName.charAt(0)}</Text>
-                    </LinearGradient>
-                    <Text style={[s.displayName, { marginTop: 16 }]}>{displayName}</Text>
-                    <Text style={[s.emailText, { marginTop: 4 }]}>{user?.email}</Text>
-                </View>
-
-                <View style={s.subscriptionCard}>
-                    <LinearGradient 
-                        colors={progression.tier === 'g_member' ? ['#CBD6DE', '#8A6E2A'] : 
-                                progression.level >= 3 ? [VOICES.rider.accent, VOICES.rider.accentDark] :
-                                [VOICES.rider.accentDark, '#1A1F27']}
-                        style={s.subscriptionGradient}
-                    >
-                        <View style={s.subscriptionContent}>
-                            <View style={s.subscriptionBadge}>
-                                <Ionicons 
-                                    name={progression.tier === 'g_member' ? 'diamond' : 
-                                          progression.level >= 5 ? 'diamond-outline' :
-                                          progression.level >= 3 ? 'shield-checkmark' : 'arrow-up-circle'} 
-                                    size={20} 
-                                    color="#EAF3F6" 
-                                />
-                                <Text style={[s.tierText, { marginLeft: 8 }]}>
-                                    {progression.tier === 'g_member' ? 'G-Member' : `Level ${progression.level} — ${progression.label}`}
-                                </Text>
-                            </View>
-                            <View style={s.subscriptionPerks}>
-                                <Text style={s.perksText}>
-                                    {progression.discount_percent}% off rides • {progression.free_wait_minutes}min grace
-                                    {progression.priority_matching ? ' • Priority' : ''}
-                                </Text>
-                            </View>
+        <Screen title="Profile" onBack={() => navigation.goBack()}>
+            {loading ? <Loading /> : (
+                <>
+                    <View style={{ alignItems: 'center', marginTop: SPACE.sm }}>
+                        <View style={{ width: 88, height: 88, borderRadius: 44, overflow: 'hidden' }}>
+                            <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                <Txt variant="hero" tone="onBrand">{displayName.charAt(0).toUpperCase()}</Txt>
+                            </LinearGradient>
                         </View>
-                    </LinearGradient>
-                </View>
+                        <Txt variant="hero" style={{ marginTop: SPACE.md, textAlign: 'center' }}>{displayName}</Txt>
+                        <Txt variant="body" tone="dim">{user?.email}</Txt>
+                    </View>
 
-                <View style={s.grid}>
-                    <View style={s.gridItem}>
-                        <Text style={s.gridValue}>{stats.totalTrips}</Text>
-                        <Text style={s.gridLabel}>Trips</Text>
-                    </View>
-                    <View style={s.gridDivider} />
-                    <View style={s.gridItem}>
-                        <Text style={[s.gridValue, { color: VOICES.rider.accent }]}>⭐ {stats.rating}</Text>
-                        <Text style={s.gridLabel}>Avg. stars given</Text>
-                    </View>
-                    <View style={s.gridDivider} />
-                    <View style={s.gridItem}>
-                        <Text style={s.gridValue}>{stats.memberSince}</Text>
-                        <Text style={s.gridLabel}>Member since</Text>
-                    </View>
-                </View>
+                    <Card style={{ marginTop: SPACE.xl }} onPress={() => navigation.navigate('Subscription')}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name={progression.tier === 'g_member' ? 'diamond' : 'trending-up'} size={20} color={m.accent} />
+                            <Txt variant="bodyStrong" style={{ marginLeft: SPACE.sm, flex: 1 }}>{tierLabel}</Txt>
+                            <Ionicons name="chevron-forward" size={18} color={m.faint} />
+                        </View>
+                        <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs }}>
+                            {progression.discount_percent}% off rides · {progression.free_wait_minutes} min free waiting{progression.priority_matching ? ' · priority matching' : ''}
+                        </Txt>
+                    </Card>
 
-                <View style={s.menu}>
-                    {menuItems.map((item, idx) => (
-                        <TouchableOpacity
-                            key={idx}
-                            style={s.menuItem}
-                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); (navigation.navigate as any)(item.nav, item.params); }}
-                        >
-                            <View style={s.menuItemLeft}>
-                                <View style={[s.iconWrapper, { backgroundColor: VOICES.rider.accent + '1A' }]}>
-                                    <Ionicons name={item.icon as any} size={20} color={VOICES.rider.accent} />
-                                </View>
-                                <Text style={[s.menuLabel, { marginLeft: 16 }]}>{item.label}</Text>
+                    <Card style={{ marginTop: SPACE.md, flexDirection: 'row' }}>
+                        {[
+                            { v: String(stats.totalTrips), l: 'Trips' },
+                            { v: stats.rating === '—' ? '—' : `${stats.rating}★`, l: 'Stars you give' },
+                            { v: stats.memberSince || '—', l: 'Member since' },
+                        ].map((x, i) => (
+                            <View key={x.l} style={{ flex: 1, alignItems: 'center', borderLeftWidth: i ? 1 : 0, borderLeftColor: m.chipBorder }}>
+                                <Txt variant="headline">{x.v}</Txt>
+                                <Txt variant="caption" tone="dim" style={{ textAlign: 'center' }}>{x.l}</Txt>
                             </View>
-                            <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                        ))}
+                    </Card>
 
-                <TouchableOpacity style={s.logoutBtn} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); signOut(); }}>
-                    <Text style={s.logoutText}>Sign out</Text>
-                </TouchableOpacity>
+                    <Section title="Account">
+                        <Card style={{ paddingVertical: SPACE.xs }}>
+                            {menuItems.map((item, idx) => (
+                                <Row key={item.nav} icon={item.icon} title={item.label} last={idx === menuItems.length - 1}
+                                    onPress={() => { Haptics.selectionAsync(); (navigation.navigate as any)(item.nav); }} />
+                            ))}
+                        </Card>
+                    </Section>
 
-                <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'transparent', backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={handleDeleteAccount}>
-                    <Text style={s.logoutText}>Delete Account</Text>
-                </TouchableOpacity>
-
-                <View style={s.footerBranding}>
-                    <Text style={s.logoText}>G-TAXI</Text>
-                    <Text style={[s.footerText, { marginTop: 6 }]}>Trinidad & Tobago</Text>
-                </View>
-
-            </ScrollView>
-        </View>
+                    <Button title="Sign out" variant="secondary" style={{ marginTop: SPACE.xl }} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); signOut(); }} />
+                    <Button title="Delete account" variant="ghost" style={{ marginTop: SPACE.md }} onPress={handleDeleteAccount} />
+                </>
+            )}
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 32 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
-    headerTitle: { fontSize: 24, color: '#EAF3F6', fontFamily: VOICES.rider.serifSemi },
-
-    hero: { alignItems: 'center', marginBottom: 40 },
-    avatarWrap: { width: 100, height: 100, borderRadius: 32, alignItems: 'center', justifyContent: 'center', ...elevationGlow(0.12) },
-    avatarLetter: { fontSize: 40, color: '#EAF3F6', fontFamily: VOICES.rider.serifSemi },
-    displayName: { fontSize: 28, color: '#EAF3F6', fontFamily: VOICES.rider.serifSemi },
-    emailText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.6)', fontFamily: 'Manrope-Medium' },
-
-    grid: { flexDirection: 'row', backgroundColor: SURFACE.containerLow, marginHorizontal: 20, borderRadius: 32, paddingVertical: 24, ...elevationGlow(0.12), marginBottom: 32 },
-    gridItem: { flex: 1, alignItems: 'center' },
-    gridDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
-    gridValue: { fontSize: 24, color: VOICES.rider.platinum, marginBottom: 4, fontFamily: VOICES.rider.serifSemi, fontVariant: ['tabular-nums'] },
-    gridLabel: { fontSize: 9, fontWeight: '500', color: 'rgba(234,243,246,0.4)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'Manrope-Medium' },
-
-    menu: { marginHorizontal: 20, backgroundColor: SURFACE.containerLow, borderRadius: 32, padding: 12, ...elevationGlow(0.12) },
-    menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18 },
-    menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
-    iconWrapper: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    menuLabel: { fontSize: 19, color: '#EAF3F6', fontFamily: VOICES.rider.serif },
-
-    logoutBtn: { marginHorizontal: 20, marginTop: 40, height: 64, borderRadius: 24, ...ghostBorder(0.15), backgroundColor: 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' },
-    logoutText: { fontSize: 16, fontWeight: '800', color: '#FF4D4D', fontFamily: 'SpaceGrotesk-Bold' },
-    footerBranding: { alignItems: 'center', marginTop: 32, opacity: 0.8 },
-    logoText: { fontSize: 18, fontWeight: '900', color: VOICES.rider.accent, letterSpacing: 2, fontFamily: 'SpaceGrotesk-Bold' },
-    footerText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5, fontFamily: 'Manrope-Medium' },
-    
-    subscriptionCard: { marginHorizontal: 20, marginBottom: 24, borderRadius: 24, overflow: 'hidden' },
-    subscriptionGradient: { borderRadius: 24 },
-    subscriptionContent: { padding: 20 },
-    subscriptionBadge: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    tierText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
-    subscriptionPerks: { marginTop: 4 },
-    perksText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)', fontFamily: 'Manrope-Medium' },
-});

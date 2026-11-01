@@ -1,23 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View, StyleSheet, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { Txt } from '@/design-system/primitives';
-import { elevationGlow, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
-import { LinearGradient } from 'expo-linear-gradient';
+import { toast } from '../components/Toast';
+import { Button, Card, Divider, Field, Loading, Row, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
-const CYAN = '#1DE0E6';
 const MIN_CENTS = 5000;
 const MAX_CENTS = 200000;
 
 export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () => void } }) {
-  const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<'driver' | 'amount' | 'confirm' | 'code'>('driver');
   const [phone, setPhone] = useState('');
@@ -68,7 +60,7 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
     } catch {
       // Don't show TT$0 and then "Insufficient balance" when the real
       // problem is that the balance never loaded.
-      Alert.alert('Could not load your balance', 'Check your connection and try again.');
+      toast('Could not load your balance. Check your connection.', 'error');
     } finally {
       setLoading(false);
     }
@@ -77,7 +69,7 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
   const handleSearchDriver = async () => {
     const digits = phone.replace(/[^\d]/g, '');
     if (digits.length < 7) {
-      Alert.alert('Invalid Phone', 'Enter a valid T&T phone number');
+      toast('Enter a valid T&T phone number.', 'error');
       return;
     }
 
@@ -92,7 +84,7 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
         .limit(1);
 
       if (error || !profiles || profiles.length === 0) {
-        Alert.alert('Not Found', 'No driver found with that phone number');
+        toast('No driver found with that number.', 'error');
         return;
       }
 
@@ -104,14 +96,14 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
         .maybeSingle();
 
       if (!drv || drv.status !== 'active') {
-        Alert.alert('Unavailable', 'This driver is not currently active');
+        toast('That driver is not active right now.', 'error');
         return;
       }
 
       setDriver({ ...drv, full_name: profiles[0].full_name, phone: digits });
       setStep('amount');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Search failed');
+      toast(err.message || 'Search failed. Please try again.', 'error');
     } finally {
       setSearching(false);
     }
@@ -122,15 +114,16 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
     const amountCents = Math.round(amountNum * 100);
 
     if (isNaN(amountNum) || amountCents < MIN_CENTS) {
-      Alert.alert('Minimum', 'Minimum withdrawal is TTD $50.00');
+      toast('The minimum is TT$50.', 'error');
       return;
     }
     if (amountCents > MAX_CENTS) {
-      Alert.alert('Maximum', 'Maximum withdrawal is TTD $2,000.00 per code');
+      toast('The most per code is TT$2,000.', 'error');
       return;
     }
-    if (amountCents > balance * 100) {
-      Alert.alert('Insufficient Balance', `You have TTD $${balance.toFixed(2)} but need TTD $${amountNum.toFixed(2)} + $2.00 fee`);
+    // The $2.00 fee comes on top (generate_cash_withdrawal_code deducts amount + fee).
+    if (amountCents + 200 > Math.round(balance * 100)) {
+      toast(`You need TT$${(amountNum + 2).toFixed(2)} (including the TT$2 fee) but have TT$${balance.toFixed(2)}.`, 'error');
       return;
     }
 
@@ -161,223 +154,93 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
       setExpiresAt(new Date(data.data.expires_at));
       setStep('code');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Something went wrong');
+      toast(err.message || 'Something went wrong. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) {
+  const m = useTheme();
+  const amt = parseFloat(amount) || 0;
+  const line = (label: string, value: string, strong?: boolean) => (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+      <Txt variant={strong ? 'headline' : 'body'} tone={strong ? 'ink' : 'dim'}>{label}</Txt>
+      <Txt variant={strong ? 'headline' : 'bodyStrong'}>{value}</Txt>
+    </View>
+  );
+
+  if (loading) return <Screen title="Cash withdrawal" onBack={() => navigation.goBack()}><Loading /></Screen>;
+
+  if (step === 'code') {
     return (
-      <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator color={CYAN} size="large" />
-      </View>
+      <Screen title="Your code" onBack={() => navigation.goBack()} footer={<Button title="Done" onPress={() => navigation.goBack()} />}>
+        <Card style={{ alignItems: 'center', paddingVertical: SPACE.xxl, marginTop: SPACE.sm }}>
+          <Txt variant="label" tone="dim">Show this code to {driver?.full_name || 'your driver'}</Txt>
+          <Txt variant="hero" tone="accent" style={{ fontSize: 48, lineHeight: 56, letterSpacing: 8, marginTop: SPACE.md }}>{generatedCode}</Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md }}>
+            <Ionicons name="time-outline" size={16} color={m.dim} />
+            <Txt variant="bodyStrong" tone="dim" style={{ marginLeft: 6 }}>{timeLeft || 'Valid for 2 hours'}</Txt>
+          </View>
+        </Card>
+        <Txt variant="body" tone="dim" style={{ textAlign: 'center', marginTop: SPACE.lg }}>
+          When the driver enters this code, they hand you TT${amt.toFixed(2)} in cash. The code works for 2 hours.
+        </Txt>
+      </Screen>
     );
   }
 
   return (
-    <View style={s.root}>
-      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-        </TouchableOpacity>
-        <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>
-          {step === 'code' ? 'Your Code' : 'Cash Withdrawal'}
-        </Txt>
-      </View>
+    <Screen
+      title="Cash withdrawal"
+      onBack={() => step === 'driver' ? navigation.goBack() : setStep(step === 'confirm' ? 'amount' : 'driver')}
+      footer={
+        step === 'driver' ? <Button title="Find driver" loading={searching} disabled={!phone.replace(/[^\d]/g, '').length} onPress={handleSearchDriver} />
+        : step === 'amount' ? <Button title="Review" disabled={!(amt > 0)} onPress={handleGenerateCode} />
+        : <Button title={`Confirm · TT$${(amt + 2).toFixed(2)} from your wallet`} loading={submitting} onPress={handleSubmitCode} />
+      }
+    >
+      <Card style={{ alignItems: 'center', marginTop: SPACE.sm }}>
+        <Txt variant="label" tone="dim">G-Coin balance</Txt>
+        <Txt variant="hero" style={{ marginTop: SPACE.xs }}>${balance.toFixed(2)}</Txt>
+      </Card>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: insets.bottom + 40 }}>
+      <Txt variant="body" tone="dim" style={{ marginTop: SPACE.lg }}>
+        Turn G-Coin into cash: a G driver hands you the cash and gets the same amount in their wallet.
+      </Txt>
 
-          {step === 'code' ? (
-            <>
-              <LinearGradient colors={[CYAN, '#a88be0']} style={s.codeHero}>
-                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">Give this code to your driver</Txt>
-                <Txt style={s.codeDisplay}>{generatedCode}</Txt>
-                <View style={s.timerRow}>
-                  <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.7)" />
-                  <Txt variant="bodyBold" color="rgba(255,255,255,0.8)" style={{ marginLeft: 6 }}>{timeLeft}</Txt>
-                </View>
-              </LinearGradient>
+      {step === 'driver' && (
+        <Section title="Which driver?">
+          <Field label="Driver's phone number" placeholder="868 555 0100" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoFocus />
+        </Section>
+      )}
 
-              <View style={s.infoCard}>
-                <Txt variant="bodyReg" color="rgba(255,255,255,0.5)" style={{ textAlign: 'center', lineHeight: 20 }}>
-                  Driver {driver?.full_name} will enter this code in their app to receive TTD ${parseFloat(amount).toFixed(2)}. The $2.00 fee is non-refundable. Codes expire in 2 hours.
-                </Txt>
-              </View>
+      {step === 'amount' && driver && (
+        <>
+          <Section title="Driver">
+            <Card style={{ paddingVertical: SPACE.xs }}>
+              <Row icon="person-outline" title={driver.full_name || 'Driver'} subtitle={`+1 ${driver.phone}`}
+                right={<Button title="Change" size="sm" variant="ghost" onPress={() => { setDriver(null); setStep('driver'); }} />} last />
+            </Card>
+          </Section>
+          <Section title="How much cash?">
+            <Field placeholder="50.00" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" autoFocus hint="Between TT$50 and TT$2,000" />
+            {amt > 0 && <Txt variant="caption" tone="dim">You pay TT${(amt + 2).toFixed(2)} from your wallet (TT$2.00 fee). You get TT${amt.toFixed(2)} in cash.</Txt>}
+          </Section>
+        </>
+      )}
 
-              <TouchableOpacity
-                style={s.submitBtn}
-                onPress={() => navigation.goBack()}
-                activeOpacity={0.85}
-              >
-                <LinearGradient colors={[CYAN, VOICES.rider.accent]} style={StyleSheet.absoluteFillObject} />
-                <Txt variant="bodyBold" weight="heavy" color="#0B0E12">Done</Txt>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <LinearGradient colors={['#1DE0E6', '#a88be0']} style={s.balanceCard}>
-                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">Your Balance</Txt>
-                <Txt variant="headingL" weight="heavy" color="#EAF3F6" style={{ fontSize: 40, fontFamily: 'CormorantGaramond_600SemiBold' }}>
-                  ${balance.toFixed(2)}
-                </Txt>
-                <Txt variant="small" color="rgba(255,255,255,0.5)">TTD</Txt>
-              </LinearGradient>
-
-              {step === 'driver' && (
-                <View style={s.inputCard}>
-                  <Txt variant="bodyBold" color="#EAF3F6" style={{ fontSize: 13, marginBottom: 8 }}>Driver Phone Number</Txt>
-                  <View style={s.phoneRow}>
-                    <Txt variant="bodyReg" color="rgba(255,255,255,0.3)" style={{ fontSize: 16 }}>+1</Txt>
-                    <TextInput
-                      style={s.phoneInput}
-                      value={phone}
-                      onChangeText={setPhone}
-                      keyboardType="phone-pad"
-                      placeholder="8685550100"
-                      placeholderTextColor="rgba(255,255,255,0.2)"
-                      autoFocus
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={[s.submitBtn, (!phone.replace(/[^\d]/g, '').length || searching) && { opacity: 0.5 }]}
-                    onPress={handleSearchDriver}
-                    disabled={!phone.replace(/[^\d]/g, '').length || searching}
-                    activeOpacity={0.85}
-                  >
-                    <LinearGradient colors={[CYAN, VOICES.rider.accent]} style={StyleSheet.absoluteFillObject} />
-                    {searching ? (
-                      <ActivityIndicator color="#EAF3F6" />
-                    ) : (
-                      <Txt variant="bodyBold" weight="heavy" color="#0B0E12">Find Driver</Txt>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {step === 'amount' && driver && (
-                <View style={s.inputCard}>
-                  <View style={s.driverBadge}>
-                    <Ionicons name="person-circle-outline" size={28} color={CYAN} />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Txt variant="bodyBold" color="#EAF3F6">{driver.full_name}</Txt>
-                      <Txt variant="small" color="rgba(255,255,255,0.4)">+1 {driver.phone}</Txt>
-                    </View>
-                    <TouchableOpacity onPress={() => { setDriver(null); setStep('driver'); }}>
-                      <Ionicons name="close-circle" size={22} color="rgba(255,255,255,0.4)" />
-                    </TouchableOpacity>
-                  </View>
-
-                  <Txt variant="bodyBold" color="#EAF3F6" style={{ fontSize: 13, marginTop: 20, marginBottom: 8 }}>Amount (TTD $50 - $2,000)</Txt>
-                  <View style={s.amountRow}>
-                    <Txt variant="headingL" weight="heavy" color="rgba(255,255,255,0.3)" style={{ fontSize: 24 }}>$</Txt>
-                    <TextInput
-                      style={s.amountInput}
-                      value={amount}
-                      onChangeText={setAmount}
-                      keyboardType="decimal-pad"
-                      placeholder="0.00"
-                      placeholderTextColor="rgba(255,255,255,0.2)"
-                      autoFocus
-                    />
-                  </View>
-
-                  {parseFloat(amount) > 0 && (
-                    <View style={s.feeRow}>
-                      <Txt variant="small" color="rgba(255,255,255,0.4)">Fee: TTD $2.00</Txt>
-                      <Txt variant="small" color="rgba(255,255,255,0.6)">Driver gets: TTD ${(parseFloat(amount) - 2).toFixed(2)}</Txt>
-                    </View>
-                  )}
-
-                  <TouchableOpacity
-                    style={[s.submitBtn, (!parseFloat(amount) || submitting) && { opacity: 0.5 }]}
-                    onPress={handleGenerateCode}
-                    disabled={!parseFloat(amount)}
-                    activeOpacity={0.85}
-                  >
-                    <LinearGradient colors={[CYAN, VOICES.rider.accent]} style={StyleSheet.absoluteFillObject} />
-                    <Txt variant="bodyBold" weight="heavy" color="#0B0E12">Generate Code</Txt>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {step === 'confirm' && (
-                <View style={s.inputCard}>
-                  <Txt variant="bodyBold" color="#EAF3F6" style={{ fontSize: 15, marginBottom: 16, textAlign: 'center' }}>Confirm Withdrawal</Txt>
-
-                  <View style={s.confirmRow}>
-                    <Txt variant="bodyReg" color="rgba(255,255,255,0.5)">Driver</Txt>
-                    <Txt variant="bodyBold" color="#EAF3F6">{driver?.full_name}</Txt>
-                  </View>
-                  <View style={s.confirmRow}>
-                    <Txt variant="bodyReg" color="rgba(255,255,255,0.5)">Amount</Txt>
-                    <Txt variant="bodyBold" color="#EAF3F6">TTD ${parseFloat(amount).toFixed(2)}</Txt>
-                  </View>
-                  <View style={s.confirmRow}>
-                    <Txt variant="bodyReg" color="rgba(255,255,255,0.5)">Fee</Txt>
-                    <Txt variant="bodyBold" color="#FF6E84">TTD $2.00</Txt>
-                  </View>
-                  <View style={[s.confirmRow, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 12 }]}>
-                    <Txt variant="bodyBold" color="rgba(255,255,255,0.5)">Total Deducted</Txt>
-                    <Txt variant="bodyBold" color="#EAF3F6">TTD ${(parseFloat(amount) + 2).toFixed(2)}</Txt>
-                  </View>
-
-                  <View style={s.confirmRow}>
-                    <Txt variant="small" color="rgba(255,255,255,0.4)" style={{ textAlign: 'center', marginTop: 8 }}>
-                      The amount (minus fee) will be credited to the driver when they enter the code. Unused codes are auto-refunded after 2 hours.
-                    </Txt>
-                  </View>
-
-                  <View style={s.confirmActions}>
-                    <TouchableOpacity
-                      style={s.cancelBtn}
-                      onPress={() => setStep('amount')}
-                    >
-                      <Txt variant="bodyBold" color="rgba(255,255,255,0.6)">Cancel</Txt>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[s.submitBtn, submitting && { opacity: 0.5 }]}
-                      onPress={handleSubmitCode}
-                      disabled={submitting}
-                      activeOpacity={0.85}
-                    >
-                      <LinearGradient colors={[CYAN, VOICES.rider.accent]} style={StyleSheet.absoluteFillObject} />
-                      {submitting ? (
-                        <ActivityIndicator color="#EAF3F6" />
-                      ) : (
-                        <Txt variant="bodyBold" weight="heavy" color="#0B0E12">Confirm & Deduct</Txt>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+      {step === 'confirm' && (
+        <Section title="Check and confirm">
+          <Card>
+            {line('Driver', driver?.full_name || '—')}
+            {line('Cash you receive', `TT$${amt.toFixed(2)}`)}
+            {line('Fee', 'TT$2.00')}
+            <Divider style={{ marginVertical: SPACE.sm }} />
+            {line('Taken from your wallet', `TT$${(amt + 2).toFixed(2)}`, true)}
+          </Card>
+          <Txt variant="caption" tone="faint" style={{ marginTop: SPACE.md }}>The money leaves your wallet as soon as you confirm. The code works for 2 hours.</Txt>
+        </Section>
+      )}
+    </Screen>
   );
 }
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: SURFACE.base },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-  backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  balanceCard: { borderRadius: 32, padding: 28, marginBottom: 24, ...elevationGlow(), gap: 6 },
-  inputCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 20, marginBottom: 16, ...ghostBorder(0.15) },
-  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  phoneInput: { flex: 1, fontSize: 18, fontWeight: '600', color: '#EAF3F6', paddingVertical: 8 },
-  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  amountInput: { flex: 1, fontSize: 32, fontWeight: '700', color: '#EAF3F6', fontFamily: 'CormorantGaramond_600SemiBold', paddingVertical: 4 },
-  feeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
-  driverBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 12 },
-  submitBtn: { height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginTop: 12, flex: 1, ...elevationGlow() },
-  cancelBtn: { height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 12, flex: 1 },
-  confirmRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
-  confirmActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  infoCard: { marginTop: 24, padding: 20, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 20 },
-  codeHero: { borderRadius: 32, padding: 32, alignItems: 'center', marginBottom: 24, ...elevationGlow(), gap: 12 },
-  codeDisplay: { fontSize: 40, fontWeight: '900', color: '#EAF3F6', letterSpacing: 8, fontFamily: 'CormorantGaramond_600SemiBold' },
-  timerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24 },
-});

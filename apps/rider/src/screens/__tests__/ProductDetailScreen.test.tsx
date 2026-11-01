@@ -12,8 +12,8 @@ jest.mock('@gtaxi/design-system', () => ({ SURFACE: { base: '#141122', container
 describe('ProductDetailScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-    const route = { params: { product: { id: 'test-product', name: 'Test Product', price_cents: 1000, description: 'A test product' } } };
+    const route = { params: { product: { id: 'test-product', name: 'Test Product', price_cents: 1000, description: 'A test product' }, merchant: { id: 'm1', name: 'Test Shop' } } };
     const { getByText } = render(<ProductDetailScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Product Details/i)).toBeTruthy();
+    expect(getByText(/Add to cart/i)).toBeTruthy();
   });
 });

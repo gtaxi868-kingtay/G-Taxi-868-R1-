@@ -1,38 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, StyleSheet, TouchableOpacity,
-    ScrollView, Switch, ActivityIndicator, Alert, useWindowDimensions
-} from 'react-native';
+import { View, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '@/design-system/primitives';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    surfaceHigh: 'rgba(255,255,255,0.1)',
-    border: 'rgba(255,255,255,0.15)',
-    purple: VOICES.rider.accent,
-    purpleLight: CYAN,
-    gold: '#F59E0B',
-    white: '#EAF3F6',
-    muted: 'rgba(255,255,255,0.7)',
-};
+import { toast } from '../components/Toast';
+import { Card, Chip, Loading, Row, Screen, Section, SPACE, Toggle, Txt, useTheme } from '../ui/kit';
 
 export function AISettingsScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
     const { user } = useAuth();
-    const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -97,183 +74,72 @@ export function AISettingsScreen({ navigation }: any) {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
-            Alert.alert('Update Failed', err.message);
+            toast('Could not save: ' + err.message, 'error');
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) {
-        return (
-            <View style={[s.root, { justifyContent: 'center' }]}>
-                <ActivityIndicator color={R.purple} />
-            </View>
+    const m = useTheme();
+    const forgetMe = () => {
+        Alert.alert(
+            'Forget everything?',
+            'G will erase all its notes about you and cancel pending reminders. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Forget me', style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase.functions.invoke('g_rider_concierge', { body: { action: 'forget' } });
+                            if (error) throw error;
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            toast('G has forgotten everything it knew about you', 'success');
+                        } catch (err: any) {
+                            toast(err?.message || 'Could not erase right now.', 'error');
+                        }
+                    },
+                },
+            ],
         );
-    }
+    };
+    const PACE: Record<string, { icon: any; label: string; text: string }> = {
+        speed: { icon: 'flash-outline', label: 'Fastest', text: 'Take the fastest route, even if it costs a little more.' },
+        balanced: { icon: 'git-compare-outline', label: 'Balanced', text: 'A good balance of time and cost.' },
+        cost: { icon: 'wallet-outline', label: 'Cheapest', text: 'Take the cheapest route, even if it takes longer.' },
+    };
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>AI & Safety</Txt>
-            </View>
-
-            <ScrollView contentContainerStyle={s.scroll}>
-                <View style={s.section}>
-                    <Txt variant="caption" color={R.muted} style={s.sectionTitle}>CONCIERGE SETTINGS</Txt>
-                    
-                    <View style={s.row}>
-                        <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#EAF3F6">Smart Suggestions</Txt>
-                            <Txt variant="small" color={R.muted}>AI learns your routines to suggest rides and stops.</Txt>
-                        </View>
-                        <Switch
-                            value={prefs.ai_suggestions_enabled}
-                            onValueChange={(val: boolean) => updatePref('ai_suggestions_enabled', val)}
-                            trackColor={{ false: R.surfaceHigh, true: R.purple }}
-                        />
-                    </View>
-
-                    <View style={s.divider} />
-
-                    <View style={s.row}>
-                        <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#EAF3F6">Quiet Ride Preference</Txt>
-                            <Txt variant="small" color={R.muted}>Nudge drivers to keep music low and talk minimal.</Txt>
-                        </View>
-                        <Switch
-                            value={prefs.quiet_ride}
-                            onValueChange={(val: boolean) => updatePref('quiet_ride', val)}
-                            trackColor={{ false: R.surfaceHigh, true: R.purple }}
-                        />
-                    </View>
-
-                    <View style={s.divider} />
-
-                    <View style={[s.row, { opacity: prefs.ai_suggestions_enabled ? 1 : 0.45 }]}>
-                        <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#EAF3F6">G Remembers You</Txt>
-                            <Txt variant="small" color={R.muted}>Let G keep notes (your usuals, preferences) to help faster. Only your own data — erase it anytime below.</Txt>
-                        </View>
-                        <Switch
-                            value={prefs.memory_enabled}
-                            disabled={!prefs.ai_suggestions_enabled}
-                            onValueChange={(val: boolean) => updatePref('memory_enabled', val)}
-                            trackColor={{ false: R.surfaceHigh, true: R.purple }}
-                        />
-                    </View>
-
-                    <View style={s.divider} />
-
-                    <TouchableOpacity
-                        style={s.forgetBtn}
-                        onPress={() => {
-                            Alert.alert(
-                                'Forget everything?',
-                                'G will erase all its notes about you and cancel pending reminders. This cannot be undone.',
-                                [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    {
-                                        text: 'Forget me',
-                                        style: 'destructive',
-                                        onPress: async () => {
-                                            try {
-                                                const { error } = await supabase.functions.invoke('g_rider_concierge', {
-                                                    body: { action: 'forget' },
-                                                });
-                                                if (error) throw error;
-                                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                                Alert.alert('Done', 'G has forgotten everything it knew about you.');
-                                            } catch (err: any) {
-                                                Alert.alert('Failed', err?.message || 'Could not erase right now.');
-                                            }
-                                        },
-                                    },
-                                ],
-                            );
-                        }}
-                    >
-                        <Ionicons name="trash-outline" size={16} color="#F87171" />
-                        <Txt variant="bodyBold" color="#F87171" style={{ marginLeft: 8 }}>Forget me — erase G's memory</Txt>
-                    </TouchableOpacity>
-
-                    <View style={s.divider} />
-
-                    <View style={[s.row, { opacity: 0.45 }]}>
-                        <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Txt variant="bodyBold" color="#EAF3F6">Predictive Grocery Carts</Txt>
-                                <View style={{ backgroundColor: R.gold, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 50 }}>
-                                    <Txt variant="small" color="#000" style={{ fontWeight: '900', fontSize: 8, letterSpacing: 1 }}>SOON</Txt>
-                                </View>
+        <Screen title="G assistant and safety" onBack={() => navigation.goBack()}>
+            {loading ? <Loading /> : (
+                <>
+                    <Section title="G assistant" style={{ marginTop: SPACE.sm }}>
+                        <Card style={{ paddingVertical: SPACE.xs }}>
+                            <Row title="Smart suggestions" subtitle="G learns your routines to suggest rides and stops"
+                                right={<Toggle label="Smart suggestions" value={prefs.ai_suggestions_enabled} onChange={(v) => updatePref('ai_suggestions_enabled', v)} />} />
+                            <Row title="Quiet ride" subtitle="Ask drivers to keep music low and chat to a minimum"
+                                right={<Toggle label="Quiet ride" value={prefs.quiet_ride} onChange={(v) => updatePref('quiet_ride', v)} />} />
+                            <View style={{ opacity: prefs.ai_suggestions_enabled ? 1 : 0.45 }}>
+                                <Row title="G remembers you" subtitle="G keeps notes on your usuals to help faster. Only your own data."
+                                    right={<Toggle label="G remembers you" value={prefs.memory_enabled}
+                                        onChange={(v) => prefs.ai_suggestions_enabled ? updatePref('memory_enabled', v) : toast('Turn on smart suggestions first.')} />} />
                             </View>
-                            <Txt variant="small" color={R.muted}>Learning your routines — launches after 30 days of ride data.</Txt>
+                            <Row icon="trash-outline" title="Forget me" subtitle="Erase everything G knows about you" danger last onPress={forgetMe} />
+                        </Card>
+                    </Section>
+
+                    <Section title="Route preference">
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                            {Object.keys(PACE).map((mode) => (
+                                <Chip key={mode} icon={PACE[mode].icon} label={PACE[mode].label} selected={prefs.pace_priority === mode} onPress={() => updatePref('pace_priority', mode)} />
+                            ))}
                         </View>
-                        <Switch
-                            value={false}
-                            disabled={true}
-                            trackColor={{ false: R.surfaceHigh, true: R.purple }}
-                        />
-                    </View>
-                </View>
+                        <Txt variant="caption" tone="dim">{PACE[prefs.pace_priority]?.text}</Txt>
+                    </Section>
 
-                <View style={s.section}>
-                    <Txt variant="caption" color={R.muted} style={s.sectionTitle}>TRAVEL PACE</Txt>
-                    <View style={s.paceGrid}>
-                        {['speed', 'balanced', 'cost'].map((mode) => (
-                            <TouchableOpacity
-                                key={mode}
-                                style={[s.paceItem, prefs.pace_priority === mode && s.paceItemActive]}
-                                onPress={() => updatePref('pace_priority', mode)}
-                            >
-                                <Ionicons 
-                                    name={mode === 'speed' ? 'flash' : mode === 'cost' ? 'wallet' : 'git-compare'} 
-                                    size={20} 
-                                    color={prefs.pace_priority === mode ? R.white : R.muted} 
-                                />
-                                <Txt variant="caption" color={prefs.pace_priority === mode ? R.white : R.muted} style={{ marginTop: 4 }}>
-                                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                                </Txt>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                    <Txt variant="small" color={R.muted} style={{ marginTop: 12, textAlign: 'center' }}>
-                        {prefs.pace_priority === 'speed' && "Prioritize the fastest route, regardless of tolls or fare."}
-                        {prefs.pace_priority === 'balanced' && "Optimized balance between travel time and cost."}
-                        {prefs.pace_priority === 'cost' && "Prioritize the cheapest path, even if it takes longer."}
-                    </Txt>
-                </View>
-
-                {saving && (
-                    <View style={s.savingIndicator}>
-                        <ActivityIndicator size="small" color={R.purple} />
-                        <Txt variant="small" color={R.purpleLight} style={{ marginLeft: 8 }}>Saving...</Txt>
-                    </View>
-                )}
-            </ScrollView>
-        </View>
+                    {saving && <Txt variant="caption" tone="accent" style={{ marginTop: SPACE.lg }}>Saving…</Txt>}
+                </>
+            )}
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    
-    scroll: { paddingHorizontal: 20, paddingBottom: 40 },
-    section: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 24, marginBottom: 20, ...ghostBorder(0.05) },
-    sectionTitle: { marginBottom: 16, letterSpacing: 2, fontWeight: '800' },
-    
-    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 20 },
-    
-    paceGrid: { flexDirection: 'row', gap: 12 },
-    paceItem: { flex: 1, height: 80, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0) },
-    paceItemActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
-
-    savingIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-    forgetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: 'rgba(248,113,113,0.08)', ...ghostBorder(0.1) }
-});

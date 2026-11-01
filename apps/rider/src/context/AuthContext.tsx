@@ -241,17 +241,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log('[Notification] Received:', notification.request.content.title);
         });
 
-        // Listen for notification taps (user opens app from notification)
-        const notificationResponseListener = Notifications.addNotificationResponseReceivedListener(response => {
-            const data = response.notification.request.content.data;
-            console.log('[Notification] Tapped:', data);
-            // Could navigate to specific screen based on data.ride_id, etc.
-        });
+        // Notification TAPS are routed by NotificationTapRouter (mounted in
+        // App.tsx while signed in); it handles cold-start taps too.
 
         return () => {
             subscription.unsubscribe();
             notificationReceivedListener.remove();
-            notificationResponseListener.remove();
         };
     }, []);
 

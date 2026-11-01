@@ -3,6 +3,7 @@ import { render } from '@testing-library/react-native';
 import { DriverFoundScreen } from '../DriverFoundScreen';
 
 jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ subscribe: jest.fn() }) }), from: () => ({ select: () => ({ eq: () => ({ single: jest.fn(), maybeSingle: jest.fn(), order: () => ({ limit: () => ({ data: null }) }) }) }) }) } }));
+jest.mock('../../services/api', () => ({ cancelRide: jest.fn() }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'test' } }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'Light' }, NotificationFeedbackType: { Success: 'Success' }, selectionAsync: jest.fn() }));
@@ -15,6 +16,6 @@ describe('DriverFoundScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn(), reset: jest.fn() };
     const route = { params: { rideId: 'test-ride', driver: { name: 'Test Driver', phone: '555-0100', photo: '', vehicle: 'Toyota Camry', plate: 'ABC 123', rating: 4.8 }, destination: {}, fare: { distance_meters: 5000, duration_seconds: 600, total_fare_cents: 2500 } } };
     const { getByText } = render(<DriverFoundScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Driver Found!/i)).toBeTruthy();
+    expect(getByText(/Your driver is on the way/i)).toBeTruthy();
   });
 });

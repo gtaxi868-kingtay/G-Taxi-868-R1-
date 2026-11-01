@@ -73,6 +73,17 @@ export default {
             kotlinVersion: "1.9.25",
             enableProguardInReleaseBuilds: true,
             enableShrinkResourcesInReleaseBuilds: true,
+            // Release builds shrink code with R8. Stripe's RN SDK references its
+            // optional push-provisioning (card-to-wallet) classes, which are not
+            // shipped, so R8 stopped with "Missing class" (first full local build,
+            // 2026-10-22). Stripe's documented fix is to ignore them. The two keep
+            // rules carried over from the old committed android/ folder.
+            extraProguardRules: [
+              "-keep class com.swmansion.reanimated.** { *; }",
+              "-keep class com.facebook.react.turbomodule.** { *; }",
+              "-dontwarn com.stripe.android.pushProvisioning.**",
+              "-dontwarn com.reactnativestripesdk.pushprovisioning.**",
+            ].join("\n"),
           },
           ios: {
             useFrameworks: "static",

@@ -14,6 +14,6 @@ describe('VisionScannerScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const { getByText } = render(<VisionScannerScreen navigation={navigation as any} />);
-    expect(getByText(/AI Vision Scanner/i)).toBeTruthy();
+    expect(getByText(/Point at an item, then tap Scan/i)).toBeTruthy();
   });
 });

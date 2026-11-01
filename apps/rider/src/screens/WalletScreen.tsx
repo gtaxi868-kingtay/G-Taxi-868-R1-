@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-    View, StyleSheet, TouchableOpacity, SafeAreaView,
-    FlatList, ActivityIndicator, useWindowDimensions, RefreshControl, Alert
-} from 'react-native';
+import { View, Pressable, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -14,28 +11,12 @@ import Reanimated, {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '@/design-system/primitives';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
-
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    surfaceHigh: 'rgba(255,255,255,0.1)',
-    border: 'rgba(191,64,255,0.2)',
-    purple: VOICES.rider.accent,
-    purpleLight: VOICES.rider.accent,
-    gold: '#F59E0B',
-    green: '#32D74B',
-    red: '#FF6E84',
-    white: '#EAF3F6',
-    muted: '#AEA9B5',
-};
+import { useInTab } from '../navigation/useInTab';
+import { toast } from '../components/Toast';
+import { BRAND_GRADIENT, BrandBadge, EmptyState, GUTTER, Header, Loading, RADIUS, Row, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function WalletScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
+    const inTab = useInTab(navigation);
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 
@@ -48,7 +29,7 @@ export function WalletScreen({ navigation }: any) {
     const animatedBalance = useSharedValue(0);
 
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id) { setLoading(false); return; }
 
         fetchWalletData();
 
@@ -102,7 +83,7 @@ export function WalletScreen({ navigation }: any) {
             }
         } catch (err) {
             console.error(err);
-            Alert.alert("Sync Issue", "Could not securely fetch your wallet balance. Pull down to refresh.");
+            toast('Could not load your wallet. Pull down to try again.', 'error');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -121,13 +102,13 @@ export function WalletScreen({ navigation }: any) {
 
             if (txError) {
                 console.error('[WalletScreen] fetchAllTransactions failed:', txError.message);
-                Alert.alert('Error', 'Could not load full history.');
+                toast('Could not load the full history.', 'error');
             } else if (txData) {
                 setTransactions(txData);
             }
         } catch (err) {
             console.error(err);
-            Alert.alert('Error', 'Could not load transaction history.');
+            toast('Could not load the full history.', 'error');
         } finally {
             setLoading(false);
         }
@@ -138,135 +119,76 @@ export function WalletScreen({ navigation }: any) {
         fetchWalletData();
     };
 
-    const renderTransaction = ({ item }: { item: any }) => {
+    const m = useTheme();
+
+    const renderTransaction = ({ item, index }: { item: any; index: number }) => {
         const isPositive = item.amount > 0;
         const date = new Date(item.created_at);
-
         return (
-            <View style={[s.txCard, { backgroundColor: 'rgba(255,255,255,0.02)' }]}>
-                <View style={[s.txIcon, { backgroundColor: isPositive ? 'rgba(0,255,163,0.1)' : 'rgba(255,69,58,0.1)' }]}>
-                    <Ionicons
-                        name={isPositive ? "arrow-down" : "arrow-up"}
-                        size={18}
-                        color={isPositive ? CYAN : '#FF6E84'}
-                    />
-                </View>
-                <View style={{ flex: 1, marginLeft: 16 }}>
-                    <Txt variant="bodyBold" color={R.white} style={{ fontSize: 16 }}>{item.description || 'Transaction'}</Txt>
-                    <Txt variant="small" color={R.muted}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Txt>
-                </View>
-                <Txt variant="bodyBold" color={isPositive ? '#BF40FF' : '#EAF3F6'}>
-                    {isPositive ? '+' : '-'}${Math.abs(item.amount / 100).toFixed(2)}
-                </Txt>
-            </View>
+            <Row
+                icon={isPositive ? 'arrow-down' : 'arrow-up'}
+                title={item.description || 'Transaction'}
+                subtitle={`${date.toLocaleDateString()} · ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                last={index === transactions.length - 1}
+                right={<Txt variant="bodyStrong" tone={isPositive ? 'success' : 'ink'}>{isPositive ? '+' : '-'}${Math.abs(item.amount / 100).toFixed(2)}</Txt>}
+            />
         );
     };
-    if (loading) {
-        return (
-            <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator color={VOICES.rider.accent} size="large" />
-            </View>
-        );
-    }
+
+    const action = (icon: any, label: string, onPress: () => void, primary?: boolean) => (
+        <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={() => { Haptics.selectionAsync(); onPress(); }}
+            style={({ pressed }) => ({ flex: 1, alignItems: 'center', opacity: pressed ? 0.75 : 1 })}>
+            {primary ? <BrandBadge icon={icon} size={52} round /> : (
+                <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name={icon} size={22} color={m.ink} />
+                </View>
+            )}
+            <Txt variant="label" style={{ marginTop: SPACE.sm }}>{label}</Txt>
+        </Pressable>
+    );
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: VOICES.rider.serifSemi }}>Wallet</Txt>
-            </View>
-
-            <FlatList<any>
-                data={transactions}
-                keyExtractor={item => item.id}
-                renderItem={renderTransaction}
-                contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.rider.accent} colors={[VOICES.rider.accent]} />
-                }
-                ListHeaderComponent={
-                    <>
-                        <LinearGradient colors={[VOICES.rider.accent, '#a88be0']} style={s.hero}>
-                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">Balance</Txt>
-                            {balanceError ? (
-                                <TouchableOpacity onPress={fetchWalletData} accessibilityLabel="Retry loading balance" accessibilityRole="button" style={{ marginVertical: 12, backgroundColor: 'rgba(255,100,100,0.2)', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <Ionicons name="alert-circle-outline" size={18} color="#FFA0A0" />
-                                    <Txt variant="bodyReg" color="#FFA0A0">Balance unavailable — tap to retry</Txt>
-                                </TouchableOpacity>
-                            ) : (
-                                <View style={s.balanceRow}>
-                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontSize: 48, fontFamily: VOICES.rider.serifSemi, fontVariant: ['tabular-nums'], flexShrink: 1 }}>${balance.toFixed(2)}</Txt>
-                                    <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
-                                </View>
-                            )}
-                            <View style={s.gCoinBadge}>
-                                <Ionicons name="flash" size={12} color="#F59E0B" />
-                                <Txt variant="caption" color="#F59E0B" style={{ marginLeft: 4 }}>G-Rewards active</Txt>
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+            <Header title="Wallet" onBack={inTab ? undefined : () => navigation.goBack()} />
+            {loading && !refreshing ? <Loading /> : (
+                <FlatList<any>
+                    data={transactions}
+                    keyExtractor={item => item.id}
+                    renderItem={renderTransaction}
+                    contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: insets.bottom + SPACE.xxl }}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={m.accent} colors={['#8B7CFF']} />}
+                    ListHeaderComponent={
+                        <>
+                            <View style={{ borderRadius: RADIUS.card, overflow: 'hidden', marginTop: SPACE.sm }}>
+                                <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: SPACE.xl }}>
+                                    <Txt variant="label" style={{ color: 'rgba(255,255,255,0.8)' }}>G-Coin balance</Txt>
+                                    {balanceError ? (
+                                        <Pressable accessibilityRole="button" onPress={fetchWalletData} style={{ marginTop: SPACE.md }}>
+                                            <Txt variant="bodyStrong" tone="onBrand">Balance not available. Tap to try again.</Txt>
+                                        </Pressable>
+                                    ) : (
+                                        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: SPACE.xs }}>
+                                            <Txt variant="hero" tone="onBrand" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 44, lineHeight: 50 }}>${balance.toFixed(2)}</Txt>
+                                            <Txt variant="bodyStrong" style={{ color: 'rgba(255,255,255,0.8)', marginLeft: SPACE.sm }}>TTD</Txt>
+                                        </View>
+                                    )}
+                                </LinearGradient>
                             </View>
-                        </LinearGradient>
 
-                        <View style={s.actions}>
-                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Add funds to wallet" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('WalletTopUp'); }}>
-                                <View style={s.actionIcon}>
-                                    <LinearGradient 
-                                        colors={[VOICES.rider.accent, CYAN]} 
-                                        style={StyleSheet.absoluteFillObject} 
-                                    />
-                                    <Ionicons name="add" size={24} color="#EAF3F6" />
-                                </View>
-                                <Txt variant="caption" weight="heavy" color="#EAF3F6" style={{ marginTop: 12 }}>ADD FUNDS</Txt>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Pay at store using NFC" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('NfcScan', { mode: 'pay' }); }}>
-                                <View style={s.actionIcon}>
-                                    <LinearGradient colors={[VOICES.rider.accent, CYAN]} style={StyleSheet.absoluteFillObject} />
-                                    <Ionicons name="swap-horizontal" size={22} color="#EAF3F6" />
-                                </View>
-                                <Txt variant="caption" weight="heavy" color="#EAF3F6" style={{ marginTop: 12 }}>PAY AT STORE</Txt>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="View transaction history" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLoading(true); fetchAllTransactions(); }}>
-                                <View style={s.actionIcon}><Ionicons name="list" size={22} color="rgba(255,255,255,0.6)" /></View>
-                                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>HISTORY</Txt>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Cash withdrawal" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('CashWithdrawal'); }}>
-                                <View style={s.actionIcon}><Ionicons name="cash-outline" size={22} color="rgba(255,255,255,0.6)" /></View>
-                                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>WITHDRAW</Txt>
-                            </TouchableOpacity>
-                        </View>
+                            <View style={{ flexDirection: 'row', marginTop: SPACE.xl }}>
+                                {action('add', 'Add money', () => navigation.navigate('WalletTopUp'), true)}
+                                {action('scan-outline', 'Pay at shop', () => navigation.navigate('NfcScan', { mode: 'pay' }))}
+                                {action('cash-outline', 'Withdraw', () => navigation.navigate('CashWithdrawal'))}
+                                {action('list-outline', 'Full history', () => { setLoading(true); fetchAllTransactions(); })}
+                            </View>
 
-                        <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 16 }}>RECENT ACTIVITY</Txt>
-                    </>
-                }
-                ListEmptyComponent={
-                    (!loading && transactions.length === 0) ? (
-                        <View style={s.empty}>
-                            <Txt variant="bodyReg" color={R.muted}>No transactions yet</Txt>
-                        </View>
-                    ) : null
-                }
-            />
+                            <Txt variant="overline" tone="faint" style={{ marginTop: SPACE.xxl, marginBottom: SPACE.sm }}>RECENT ACTIVITY</Txt>
+                        </>
+                    }
+                    ListEmptyComponent={<EmptyState icon="wallet-outline" title="No activity yet" body="Top-ups, rides paid with G-Coin and withdrawals will show here." />}
+                />
+            )}
         </View>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-
-    hero: { borderRadius: 40, padding: 32, marginBottom: 32, ...elevationGlow() },
-    balanceRow: { flexDirection: 'row', alignItems: 'baseline', marginVertical: 8 },
-    gCoinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, alignSelf: 'flex-start' },
-
-    actions: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 44 },
-    actionBtn: { alignItems: 'center', flex: 1 },
-    actionIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...ghostBorder(0.15) },
-
-    txCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 28, marginBottom: 12, ...ghostBorder(0.15), overflow: 'hidden' },
-    txIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-
-    empty: { marginTop: 40, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 40, borderRadius: 32 },
-});

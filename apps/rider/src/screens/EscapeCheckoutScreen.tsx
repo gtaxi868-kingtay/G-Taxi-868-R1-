@@ -1,20 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Alert, SafeAreaView, Linking,
-} from 'react-native';
+import { View, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@gtaxi/core';
 import { useStripe } from '@stripe/stripe-react-native';
 import type { AppStackParamList } from '../navigation/types';
-
-const BRAND = '#22D3EE';
-// Cyan is reserved for things the rider can tap. Decorative text/icons
-// (package name, section labels, line-item icons, the pool progress fill)
-// use this neutral tone instead.
-const NEUTRAL = 'rgba(242,245,248,0.5)';
+import { toast } from '../components/Toast';
+import { Button, Card, Divider, EmptyState, Loading, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeCheckout'>;
 type RouteT = RouteProp<AppStackParamList, 'EscapeCheckout'>;
@@ -87,8 +80,7 @@ export default function EscapeCheckoutScreen() {
         guests: guestCount,
       });
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to load package pricing');
-      navigation.goBack();
+      toast(err?.message ?? 'Could not load this escape.', 'error');
     } finally {
       setLoading(false);
     }
@@ -129,170 +121,96 @@ export default function EscapeCheckoutScreen() {
       const { error: presentErr } = await presentPaymentSheet();
       if (presentErr) {
         if (presentErr.code !== 'Canceled') {
-          Alert.alert('Payment failed', presentErr.message);
+          toast(presentErr.message || 'Payment did not go through.', 'error');
         }
         return;
       }
 
       navigation.replace('ActivePass');
     } catch (err: any) {
-      Alert.alert('Booking error', err.message ?? 'Something went wrong');
+      toast(err?.message ?? 'Booking did not go through. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const fmt = (cents: number) => `TTD ${(cents / 100).toFixed(2)}`;
+  const fmt = (cents: number) => `TT$${((cents || 0) / 100).toFixed(2)}`;
   const fmtDate = (iso: string) => {
     const d = new Date(iso);
     return d.toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  if (loading) {
+  const m = useTheme();
+
+  if (loading) return <Screen title="Checkout" onBack={() => navigation.goBack()}><Loading /></Screen>;
+  if (!breakdown) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={BRAND} />
-      </View>
+      <Screen title="Checkout" onBack={() => navigation.goBack()}>
+        <EmptyState icon="airplane-outline" title="This escape is not available" body="It may be full or no longer on sale." />
+      </Screen>
     );
   }
 
-  if (!breakdown) return null;
-
   const seatsLeft = breakdown.tipping_point_seats - breakdown.allocated_seats;
-  const poolPct = Math.min(100, Math.round((breakdown.allocated_seats / breakdown.tipping_point_seats) * 100));
+  const poolPct = Math.min(100, Math.round((breakdown.allocated_seats / Math.max(1, breakdown.tipping_point_seats)) * 100));
+  const line = (icon: any, label: string, value: string) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+      <Ionicons name={icon} size={16} color={m.faint} />
+      <Txt variant="body" tone="dim" style={{ flex: 1, marginLeft: SPACE.sm }}>{label}</Txt>
+      <Txt variant="bodyStrong">{value}</Txt>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Checkout</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.destination}>{breakdown.destination_name}</Text>
-        <Text style={styles.packageName}>{breakdown.package_name}</Text>
-        <Text style={styles.dateLabel}>Departs {fmtDate(breakdown.departure_time)} · {breakdown.nights}N</Text>
-
-        <View style={styles.card}>
-          <View style={styles.poolHeader}>
-            <Text style={styles.poolLabel}>Flight pool</Text>
-            <Text style={styles.poolCount}>{breakdown.allocated_seats} / {breakdown.tipping_point_seats} seats</Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${poolPct}%` as any }]} />
-          </View>
-          <Text style={styles.poolSub}>
-            {seatsLeft > 0
-              ? `${seatsLeft} more seat${seatsLeft !== 1 ? 's' : ''} needed to lock this flight`
-              : 'Tipping point reached — flight is confirmed!'}
-          </Text>
+    <Screen
+      title="Checkout"
+      onBack={() => navigation.goBack()}
+      footer={<Button title={`Lock my escape · ${fmt(breakdown.total_price_cents)}`} loading={submitting} onPress={handleCommit} />}
+      hero={
+        <View>
+          <Txt variant="label" tone="accent">{breakdown.package_name}</Txt>
+          <Txt variant="hero" style={{ marginTop: SPACE.xs }}>{breakdown.destination_name}</Txt>
+          {breakdown.departure_time ? <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>Leaves {fmtDate(breakdown.departure_time)} · {breakdown.nights} nights</Txt> : null}
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>WHAT YOU GET</Text>
-
-          <Row icon="car-outline" label="Transfer to Piarco (Trinidad)" value={fmt(breakdown.driver_origin_cost_cents)} />
-          <Row icon="airplane-outline" label={`Flight POS ⇄ ${(breakdown.destination_name || 'destination').split(' ')[0]}`} value={fmt(breakdown.flight_cost_per_person_cents)} />
-          <Row icon="car-outline" label={`${breakdown.destination_name} villa transfer`} value={fmt(breakdown.driver_destination_cost_cents)} />
-          <Row icon="home-outline" label={`${breakdown.nights}-night villa stay`} value={fmt(breakdown.lodging_cost_per_person_cents)} />
-
-          <View style={styles.divider} />
-
-          <View style={styles.row}>
-            <Text style={styles.perPersonLabel}>Per person</Text>
-            <Text style={styles.perPersonValue}>{fmt(breakdown.price_per_person_cents)}</Text>
-          </View>
-
-          {guestCount > 1 && (
-            <View style={styles.row}>
-              <Text style={styles.guestMult}>× {breakdown.guests} guests</Text>
-            </View>
-          )}
-
-          <View style={[styles.row, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{fmt(breakdown.total_price_cents)}</Text>
-          </View>
+      }
+    >
+      <Card>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Txt variant="bodyStrong">Seats filled</Txt>
+          <Txt variant="bodyStrong" tone="dim">{breakdown.allocated_seats} of {breakdown.tipping_point_seats}</Txt>
         </View>
-
-        <View style={styles.noticeCard}>
-          <Ionicons name="lock-closed-outline" size={18} color={NEUTRAL} />
-          <Text style={styles.noticeText}>
-            Your card is reserved but not charged. Payment only completes once this flight
-            reaches {breakdown.tipping_point_seats} seats. If the pool doesn't fill, your hold is automatically voided — no charge, ever.
-          </Text>
+        <View style={{ height: 8, borderRadius: 4, backgroundColor: m.field, marginTop: SPACE.sm, overflow: 'hidden' }}>
+          <View style={{ height: 8, width: `${poolPct}%` as any, backgroundColor: '#8B7CFF' }} />
         </View>
+        <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.sm }}>
+          {seatsLeft > 0 ? `${seatsLeft} more seat${seatsLeft !== 1 ? 's' : ''} needed to confirm the flight` : 'Enough seats are filled. This flight is on.'}
+        </Txt>
+      </Card>
 
-        <TouchableOpacity
-          style={[styles.cta, submitting && styles.ctaDisabled]}
-          onPress={handleCommit}
-          disabled={submitting}
-          activeOpacity={0.85}
-        >
-          {submitting
-            ? <ActivityIndicator color="#07070F" />
-            : <Text style={styles.ctaText}>Lock my escape · {fmt(breakdown.total_price_cents)}</Text>}
-        </TouchableOpacity>
+      <Section title="What's included">
+        <Card>
+          {line('car-outline', 'Ride to Piarco', fmt(breakdown.driver_origin_cost_cents))}
+          {line('airplane-outline', `Flight to ${(breakdown.destination_name || 'destination').split(' ')[0]} and back`, fmt(breakdown.flight_cost_per_person_cents))}
+          {line('car-outline', `Ride to your stay in ${breakdown.destination_name}`, fmt(breakdown.driver_destination_cost_cents))}
+          {line('home-outline', `${breakdown.nights} nights' stay`, fmt(breakdown.lodging_cost_per_person_cents))}
+          <Divider style={{ marginVertical: SPACE.sm }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+            <Txt variant="body" tone="dim">Per person{guestCount > 1 ? ` × ${breakdown.guests}` : ''}</Txt>
+            <Txt variant="bodyStrong">{fmt(breakdown.price_per_person_cents)}</Txt>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+            <Txt variant="headline">Total</Txt>
+            <Txt variant="headline">{fmt(breakdown.total_price_cents)}</Txt>
+          </View>
+        </Card>
+      </Section>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </SafeAreaView>
+      <Card style={{ marginTop: SPACE.md, flexDirection: 'row', alignItems: 'flex-start' }}>
+        <Ionicons name="lock-closed-outline" size={18} color={m.accent} style={{ marginTop: 2 }} />
+        <Txt variant="caption" tone="dim" style={{ flex: 1, marginLeft: SPACE.sm }}>
+          Your payment is held, not taken, until the flight reaches {breakdown.tipping_point_seats} seats. If it does not fill, the hold is released and you are not charged.
+        </Txt>
+      </Card>
+    </Screen>
   );
 }
-
-const Row: React.FC<{ icon: string; label: string; value: string }> = ({ icon, label, value }) => (
-  <View style={styles.row}>
-    <View style={styles.rowLeft}>
-      <Ionicons name={icon as any} size={14} color={NEUTRAL} />
-      <Text style={styles.rowLabel}>{label}</Text>
-    </View>
-    <Text style={styles.rowValue}>{value}</Text>
-  </View>
-);
-
-const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: '#07070F' },
-  container:     { flex: 1, paddingHorizontal: 20 },
-  centered:      { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#07070F' },
-  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                   paddingHorizontal: 16, paddingVertical: 12 },
-  backBtn:       { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)',
-                   alignItems: 'center', justifyContent: 'center' },
-  headerTitle:   { fontSize: 17, fontWeight: '700', color: '#EAF3F6' },
-  destination:   { fontSize: 28, fontWeight: '800', color: '#EAF3F6', marginTop: 8, letterSpacing: -0.5 },
-  packageName:   { fontSize: 15, color: NEUTRAL, fontWeight: '600', marginTop: 4 },
-  dateLabel:     { fontSize: 13, color: 'rgba(242,245,248,0.5)', marginTop: 4, marginBottom: 20 },
-
-  card:          { backgroundColor: '#13171D', borderRadius: 16, padding: 18, marginBottom: 16,
-                   borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  sectionTitle:  { color: NEUTRAL, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 14 },
-  row:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 7 },
-  rowLeft:       { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  rowLabel:      { color: 'rgba(242,245,248,0.6)', fontSize: 14, flex: 1 },
-  rowValue:      { color: '#EAF3F6', fontSize: 14, fontWeight: '500' },
-  divider:       { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 10 },
-  perPersonLabel:{ color: 'rgba(242,245,248,0.42)', fontSize: 13 },
-  perPersonValue:{ color: 'rgba(242,245,248,0.7)', fontSize: 13, fontWeight: '600' },
-  guestMult:     { color: 'rgba(242,245,248,0.35)', fontSize: 12, flex: 1, textAlign: 'right' },
-  totalRow:      { marginTop: 4 },
-  totalLabel:    { color: '#EAF3F6', fontSize: 18, fontWeight: '800' },
-  totalValue:    { color: '#10B981', fontSize: 20, fontWeight: '800' },
-
-  poolHeader:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  poolLabel:     { color: 'rgba(242,245,248,0.42)', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  poolCount:     { color: '#EAF3F6', fontSize: 12, fontWeight: '600' },
-  progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
-  progressFill:  { height: 4, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 2 },
-  poolSub:       { color: 'rgba(242,245,248,0.35)', fontSize: 11, marginTop: 8 },
-
-  noticeCard:    { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14,
-                   marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', gap: 10 },
-  noticeText:    { color: 'rgba(242,245,248,0.55)', fontSize: 12, lineHeight: 18, flex: 1 },
-
-  cta:           { backgroundColor: BRAND, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  ctaDisabled:   { opacity: 0.5 },
-  ctaText:       { color: '#07070F', fontWeight: '800', fontSize: 16 },
-});

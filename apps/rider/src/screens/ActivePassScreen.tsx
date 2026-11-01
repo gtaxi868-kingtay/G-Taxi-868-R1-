@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Share, Animated, SafeAreaView, ActivityIndicator, Linking, Alert,
-} from 'react-native';
+import { View, Share, Animated, Linking, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase, escapeWhatsAppLink } from '@gtaxi/core';
 import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip, ItineraryLeg } from '../context/EscapeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { Button, Card, Divider, EmptyState, Loading, Row, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
-const BRAND = '#34E6EC';
+const BRAND = '#8B7CFF';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'ActivePass'>;
 
@@ -31,10 +29,10 @@ const LEG_ICON_NAMES: Record<string, 'car-outline' | 'airplane-outline' | 'home-
 };
 
 const LEG_STATUS_COLOR: Record<string, string> = {
-  scheduled:        'rgba(255,255,255,0.2)',
+  scheduled:        '#B8B0C4',
   driver_en_route:  BRAND,
-  in_transit:       '#34E6EC',
-  completed:        '#22C55E',
+  in_transit:       '#3FD9E8',
+  completed:        '#2FB57C',
   delayed:          '#F59E0B',
   cancelled:        '#EF4444',
 };
@@ -93,24 +91,16 @@ export default function ActivePassScreen() {
     fetchParticipant();
   }, [activeTrip?.status, activeTrip?.escape_packages?.id]);
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={BRAND} />
-      </View>
-    );
-  }
+  const m = useTheme();
+
+  if (loading) return <Screen title="Your escape" onBack={() => navigation.goBack()}><Loading /></Screen>;
 
   if (!activeTrip) {
     return (
-      <View style={styles.centered}>
-        <Ionicons name="airplane-outline" size={48} color="rgba(255,255,255,0.15)" />
-        <Text style={styles.emptyTitle}>No active escape</Text>
-        <Text style={styles.emptySub}>Book a G Escape package to see your trip here.</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>Browse Escapes</Text>
-        </TouchableOpacity>
-      </View>
+      <Screen title="Your escape" onBack={() => navigation.goBack()}>
+        <EmptyState icon="airplane-outline" title="No trip booked yet" body="Book a G Escape package and your trip will show here."
+          action={<Button title="Browse escapes" onPress={() => navigation.navigate('EscapeStorefront')} />} />
+      </Screen>
     );
   }
 
@@ -120,7 +110,7 @@ export default function ActivePassScreen() {
   const fb = pkg?.flight_blocks;
   const phaseLabel = PHASE_LABELS[status] ?? status;
 
-  const fmt = (cents: number) => `TTD ${(cents / 100).toFixed(2)}`;
+  const fmt = (cents: number) => `TT$${((cents || 0) / 100).toFixed(2)}`;
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-TT', {
     weekday: 'short', day: 'numeric', month: 'short',
   });
@@ -180,162 +170,117 @@ export default function ActivePassScreen() {
     );
   };
 
+  const live = ['CONFIRMED', 'EN_ROUTE_DEPART', 'ON_ISLAND', 'EN_ROUTE_RETURN'].includes(status);
+  const field = (label: string, value: string) => (
+    <View style={{ marginRight: SPACE.xl, marginBottom: SPACE.sm }}>
+      <Txt variant="overline" tone="faint">{label}</Txt>
+      <Txt variant="headline">{value}</Txt>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.phaseBadge}>
-          <Animated.View style={[styles.phaseDot, { transform: [{ scale: pulseAnim }] }]} />
-          <Text style={styles.phaseText}>{phaseLabel}</Text>
+    <Screen
+      title="Your escape"
+      onBack={() => navigation.goBack()}
+      hero={
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Animated.View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#8B7CFF', marginRight: SPACE.sm, transform: [{ scale: pulseAnim }] }} />
+            <Txt variant="label" tone="accent">{phaseLabel}</Txt>
+          </View>
+          <Txt variant="hero" style={{ marginTop: SPACE.xs }}>{fb?.destination_name ?? pkg?.lodging_nodes?.destination_code ?? 'Your escape'}</Txt>
+          <Txt variant="body" tone="dim">{[pkg?.package_name, fb?.departure_time ? `${fmtDate(fb.departure_time)} at ${fmtTime(fb.departure_time)}` : null].filter(Boolean).join(' · ')}</Txt>
         </View>
+      }
+    >
+      {status === 'ACTIVE_HOLD' && (
+        <Card>
+          <Txt variant="bodyStrong">Your seats are on hold</Txt>
+          <Txt variant="hero" tone="accent" style={{ marginTop: SPACE.xs }}>{countdown}</Txt>
+          <Txt variant="caption" tone="dim">Finish paying before the timer ends to keep them.</Txt>
+          <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs }}>Total {fmt(activeTrip.total_price_cents)} · {activeTrip.guest_count} guest{activeTrip.guest_count !== 1 ? 's' : ''}</Txt>
+        </Card>
+      )}
 
-        <Text style={styles.destination}>{fb?.destination_name ?? pkg?.lodging_nodes?.destination_code}</Text>
-        <Text style={styles.pkgName}>{pkg?.package_name}</Text>
-        {fb?.departure_time && (
-          <Text style={styles.departure}>{fmtDate(fb.departure_time)} at {fmtTime(fb.departure_time)}</Text>
-        )}
-
-        {status === 'ACTIVE_HOLD' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Seat hold active</Text>
-            <Text style={styles.holdCountdown}>{countdown}</Text>
-            <Text style={styles.cardSub}>Complete payment before the hold expires to secure your seats.</Text>
-            <Text style={styles.cardSub2}>Total: {fmt(activeTrip.total_price_cents)} · {activeTrip.guest_count} guest{activeTrip.guest_count !== 1 ? 's' : ''}</Text>
+      {status === 'CAPTURED' && fb && (
+        <Card>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Txt variant="bodyStrong">Seats filled</Txt>
+            <Txt variant="bodyStrong" tone="dim">{fb.allocated_seats} of {fb.tipping_point_seats}</Txt>
           </View>
-        )}
-
-        {status === 'CAPTURED' && fb && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Flight pooling</Text>
-            <View style={styles.poolRow}>
-              <Text style={styles.poolFraction}>{fb.allocated_seats} / {fb.tipping_point_seats}</Text>
-              <Text style={styles.poolSub}>seats filled</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${poolPct}%` as any }]} />
-            </View>
-            <Text style={styles.poolNeed}>
-              {seatsLeft > 0
-                ? `${seatsLeft} more seat${seatsLeft !== 1 ? 's' : ''} to lock this flight`
-                : '✓ Tipping point reached'}
-            </Text>
-            {seatsLeft > 0 && (
-              <View style={{ gap: 8, marginTop: 14 }}>
-                <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
-                  <Text style={styles.shareBtnText}>Share link to lock this flight →</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.waBtn} onPress={handleWhatsAppShare}>
-                  <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
-                  <Text style={styles.waBtnText}>Send on WhatsApp</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {fb.cancel_deadline && (
-              <Text style={styles.deadlineNote}>
-                Pool closes {fmtDate(fb.cancel_deadline)}
-              </Text>
-            )}
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: m.field, marginTop: SPACE.sm, overflow: 'hidden' }}>
+            <View style={{ height: 8, width: `${poolPct}%` as any, backgroundColor: '#8B7CFF' }} />
           </View>
-        )}
+          <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.sm }}>
+            {seatsLeft > 0 ? `${seatsLeft} more seat${seatsLeft !== 1 ? 's' : ''} needed to confirm the flight` : 'Enough seats are filled. This flight is on.'}
+            {fb.cancel_deadline ? ` · Closes ${fmtDate(fb.cancel_deadline)}` : ''}
+          </Txt>
+          {seatsLeft > 0 && (
+            <View style={{ flexDirection: 'row', gap: SPACE.md, marginTop: SPACE.lg }}>
+              <Button title="WhatsApp" icon="logo-whatsapp" size="md" variant="secondary" style={{ flex: 1 }} onPress={handleWhatsAppShare} />
+              <Button title="Share" icon="share-social-outline" size="md" style={{ flex: 1 }} onPress={handleShare} />
+            </View>
+          )}
+        </Card>
+      )}
 
-        {(status === 'CONFIRMED' || status === 'EN_ROUTE_DEPART' || status === 'ON_ISLAND' || status === 'EN_ROUTE_RETURN') && (
-          <View style={styles.boardingPass}>
-            <View style={styles.bpHeader}>
-              <View>
-                <Text style={styles.bpAirport}>POS</Text>
-                <Text style={styles.bpCity}>Piarco</Text>
-              </View>
-              <Ionicons name="airplane-outline" size={22} color={BRAND} />
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.bpAirport}>{fb?.destination_code ?? 'TAB'}</Text>
-                <Text style={styles.bpCity}>{fb?.destination_name?.split(' ')[0] ?? 'Destination'}</Text>
-              </View>
+      {live && (
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View>
+              <Txt variant="hero">POS</Txt>
+              <Txt variant="caption" tone="dim">Piarco</Txt>
             </View>
-            <View style={styles.bpDivider}>
-              <View style={styles.bpNotch} />
-              <View style={styles.bpLine} />
-              <View style={[styles.bpNotch, { right: -8, left: undefined }]} />
-            </View>
-            <View style={styles.bpBody}>
-              <View style={styles.bpField}>
-                <Text style={styles.bpFieldLabel}>BOOKING REF</Text>
-                <Text style={styles.bpFieldValue}>{activeTrip.booking_ref ?? '—'}</Text>
-              </View>
-              <View style={styles.bpField}>
-                <Text style={styles.bpFieldLabel}>GUESTS</Text>
-                <Text style={styles.bpFieldValue}>{activeTrip.guest_count}</Text>
-              </View>
-              {fb?.departure_time && (
-                <View style={styles.bpField}>
-                  <Text style={styles.bpFieldLabel}>DEPARTURE</Text>
-                  <Text style={styles.bpFieldValue}>{fmtDate(fb.departure_time)}</Text>
-                </View>
-              )}
-              {itin?.qr_code_token && (
-                <View style={[styles.bpField, { flex: 1, alignItems: 'center', marginTop: 12 }]}>
-                  <View style={styles.qrPlaceholder}>
-                    <Text style={styles.qrToken}>{itin.qr_code_token}</Text>
-                    <Text style={styles.qrSub}>Present at gate</Text>
-                  </View>
-                </View>
-              )}
+            <Ionicons name="airplane" size={22} color={m.accent} />
+            <View style={{ alignItems: 'flex-end' }}>
+              <Txt variant="hero">{fb?.destination_code ?? '—'}</Txt>
+              <Txt variant="caption" tone="dim">{fb?.destination_name?.split(' ')[0] ?? 'Destination'}</Txt>
             </View>
           </View>
-        )}
-
-        {status === 'CONFIRMED' && participantId && (
-          <TouchableOpacity
-            style={styles.passportCta}
-            onPress={() => navigation.navigate('PassportSubmission', { participantId })}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="document-text-outline" size={20} color={BRAND} />
-            <View style={styles.passportCtaTextWrap}>
-              <Text style={styles.passportCtaTitle}>Submit Passport Details</Text>
-              <Text style={styles.passportCtaSub}>Required for airline check-in</Text>
+          <Divider />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {field('BOOKING REF', activeTrip.booking_ref ?? '—')}
+            {field('GUESTS', String(activeTrip.guest_count))}
+            {fb?.departure_time ? field('DEPARTS', fmtDate(fb.departure_time)) : null}
+          </View>
+          {itin?.qr_code_token && (
+            <View style={{ alignItems: 'center', marginTop: SPACE.md, padding: SPACE.lg, borderRadius: 16, backgroundColor: m.field }}>
+              <Txt variant="title" style={{ letterSpacing: 2 }}>{itin.qr_code_token}</Txt>
+              <Txt variant="caption" tone="dim">Show this at the gate</Txt>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={BRAND} />
-          </TouchableOpacity>
-        )}
+          )}
+        </Card>
+      )}
 
-        {itin?.itinerary_legs && itin.itinerary_legs.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Your journey</Text>
+      {status === 'CONFIRMED' && participantId && (
+        <Card style={{ marginTop: SPACE.md, paddingVertical: SPACE.xs }}>
+          <Row icon="document-text-outline" title="Add passport details" subtitle="Needed for airline check-in" last
+            onPress={() => navigation.navigate('PassportSubmission', { participantId })} />
+        </Card>
+      )}
+
+      {itin?.itinerary_legs && itin.itinerary_legs.length > 0 && (
+        <Section title="Your journey">
+          <Card>
             {itin.itinerary_legs.map((leg, idx) => (
               <LegRow key={leg.id} leg={leg} isLast={idx === itin.itinerary_legs.length - 1} />
             ))}
-          </View>
-        )}
+          </Card>
+        </Section>
+      )}
 
-        {status === 'ON_ISLAND' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>You're on island</Text>
-            <Text style={styles.onIslandText}>
-              {pkg?.lodging_nodes?.name} is ready for you.
-              Your driver is confirmed and on the way to the arrivals terminal.
-            </Text>
-            <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Jet ski excursion')}>
-              <Text style={styles.addOnLabel}>Jet ski excursion</Text>
-              <Ionicons name="chevron-forward" size={14} color={BRAND} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Private chef dinner')}>
-              <Text style={styles.addOnLabel}>Private chef dinner</Text>
-              <Ionicons name="chevron-forward" size={14} color={BRAND} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Island tour (half day)')}>
-              <Text style={styles.addOnLabel}>Island tour (half day)</Text>
-              <Ionicons name="chevron-forward" size={14} color={BRAND} />
-            </TouchableOpacity>
-          </View>
-        )}
+      {status === 'ON_ISLAND' && (
+        <Section title="While you're there">
+          <Card style={{ paddingVertical: SPACE.xs }}>
+            {['Jet ski excursion', 'Private chef dinner', 'Island tour (half day)'].map((label, i, arr) => (
+              <Row key={label} title={label} subtitle="Arranged by your G concierge" last={i === arr.length - 1} onPress={() => handleAddOn(label)} />
+            ))}
+          </Card>
+        </Section>
+      )}
 
-        <View style={styles.footer}>
-          <Text style={styles.footerRef}>Ref {activeTrip.booking_ref ?? '—'}</Text>
-          <Text style={styles.footerSub}>G Escape · {fmt(activeTrip.total_price_cents)}</Text>
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </SafeAreaView>
+      <Txt variant="caption" tone="faint" style={{ textAlign: 'center', marginTop: SPACE.xl }}>Ref {activeTrip.booking_ref ?? '—'} · {fmt(activeTrip.total_price_cents)}</Txt>
+    </Screen>
   );
 }
 
@@ -356,115 +301,22 @@ const LegRow: React.FC<{ leg: ItineraryLeg; isLast: boolean }> = ({ leg, isLast 
     ? LEG_LABELS[leg.reference_code] ?? leg.reference_code
     : leg.service_type === 'AVIATION' ? 'Flight' : leg.service_type;
 
+  const m = useTheme();
+  const color = LEG_STATUS_COLOR[leg.status] ?? m.faint;
   return (
-    <View style={styles.legRow}>
-      <View style={styles.legLeft}>
-        <View style={[styles.legDot, { backgroundColor: LEG_STATUS_COLOR[leg.status] ?? 'rgba(255,255,255,0.2)' }]} />
-        {!isLast && <View style={styles.legLine} />}
+    <View style={{ flexDirection: 'row' }}>
+      <View style={{ alignItems: 'center', width: 24 }}>
+        <View style={{ width: 12, height: 12, borderRadius: 6, marginTop: 4, backgroundColor: color }} />
+        {!isLast && <View style={{ width: 2, flex: 1, minHeight: 24, backgroundColor: m.chipBorder }} />}
       </View>
-      <View style={styles.legContent}>
-        <Ionicons name={LEG_ICON_NAMES[leg.service_type] ?? 'ellipse-outline'} size={16} color={BRAND} />
-        <View style={styles.legInfo}>
-          <Text style={styles.legLabel}>{label}</Text>
-          {leg.scheduled_start && (
-            <Text style={styles.legTime}>{fmtTime(leg.scheduled_start)}</Text>
-          )}
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', marginLeft: SPACE.sm, paddingBottom: isLast ? 0 : SPACE.lg }}>
+        <Ionicons name={LEG_ICON_NAMES[leg.service_type] ?? 'ellipse-outline'} size={16} color={m.accent} style={{ marginTop: 2 }} />
+        <View style={{ flex: 1, marginLeft: SPACE.sm }}>
+          <Txt variant="bodyStrong">{label}</Txt>
+          {leg.scheduled_start ? <Txt variant="caption" tone="dim">{fmtTime(leg.scheduled_start)}</Txt> : null}
         </View>
-        <View style={[styles.legStatusBadge, { backgroundColor: LEG_STATUS_COLOR[leg.status] + '22' }]}>
-          <Text style={[styles.legStatusText, { color: LEG_STATUS_COLOR[leg.status] }]}>
-            {leg.status.replace('_', ' ')}
-          </Text>
-        </View>
+        <Txt variant="label" style={{ color }}>{leg.status.replace(/_/g, ' ')}</Txt>
       </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: '#07070F' },
-  scroll:          { flex: 1, paddingHorizontal: 20 },
-  centered:        { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#07070F', padding: 30 },
-  emptyTitle:      { color: '#EAF3F6', fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  emptySub:        { color: 'rgba(242,245,248,0.42)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  backBtn:         { marginTop: 24, backgroundColor: BRAND, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
-  backBtnText:     { color: '#07070F', fontWeight: '700' },
-
-  phaseBadge:      { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8, gap: 8 },
-  phaseDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND },
-  phaseText:       { color: BRAND, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  destination:     { fontSize: 30, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.5 },
-  pkgName:         { fontSize: 15, color: 'rgba(242,245,248,0.6)', marginTop: 2 },
-  departure:       { fontSize: 13, color: 'rgba(242,245,248,0.42)', marginTop: 2, marginBottom: 20 },
-
-  card:            { backgroundColor: '#13171D', borderRadius: 16, padding: 18, marginBottom: 16,
-                     borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  cardTitle:       { color: BRAND, fontSize: 11, fontWeight: '700', letterSpacing: 0.5,
-                     textTransform: 'uppercase', marginBottom: 14 },
-  cardSub:         { color: 'rgba(242,245,248,0.5)', fontSize: 13, marginTop: 8 },
-  cardSub2:        { color: 'rgba(242,245,248,0.6)', fontSize: 13, marginTop: 4, fontWeight: '600' },
-
-  holdCountdown:   { color: '#EAF3F6', fontSize: 48, fontWeight: '200', letterSpacing: -2, marginVertical: 8 },
-
-  poolRow:         { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12 },
-  poolFraction:    { color: '#EAF3F6', fontSize: 28, fontWeight: '700' },
-  poolSub:         { color: 'rgba(242,245,248,0.42)', fontSize: 14 },
-  progressTrack:   { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 10 },
-  progressFill:    { height: 4, backgroundColor: BRAND, borderRadius: 2 },
-  poolNeed:        { color: 'rgba(242,245,248,0.5)', fontSize: 12 },
-  shareBtn:        { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, paddingVertical: 12,
-                     alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  shareBtnText:    { color: BRAND, fontWeight: '600', fontSize: 13 },
-  waBtn:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                     backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 12, paddingVertical: 12,
-                     borderWidth: 1, borderColor: 'rgba(37,211,102,0.2)' },
-  waBtnText:       { color: '#25D366', fontWeight: '600', fontSize: 13 },
-  deadlineNote:    { color: 'rgba(242,245,248,0.55)', fontSize: 11, marginTop: 10, textAlign: 'center' },
-
-  passportCta:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52,230,236,0.06)',
-                     borderRadius: 14, padding: 16, marginBottom: 16, gap: 12,
-                     borderWidth: 1, borderColor: 'rgba(52,230,236,0.15)' },
-  passportCtaTextWrap: { flex: 1 },
-  passportCtaTitle: { color: '#EAF3F6', fontSize: 14, fontWeight: '700' },
-  passportCtaSub:  { color: 'rgba(242,245,248,0.42)', fontSize: 11, marginTop: 2 },
-
-  boardingPass:    { backgroundColor: '#0F1115', borderRadius: 16, marginBottom: 16, overflow: 'hidden',
-                     borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  bpHeader:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-                     paddingHorizontal: 20, paddingVertical: 20 },
-  bpAirport:       { color: '#EAF3F6', fontSize: 26, fontWeight: '200', letterSpacing: 2 },
-  bpCity:          { color: 'rgba(242,245,248,0.35)', fontSize: 11 },
-  bpDivider:       { height: 1, marginHorizontal: 0, position: 'relative' },
-  bpNotch:         { position: 'absolute', left: -8, top: -8, width: 16, height: 16,
-                     borderRadius: 8, backgroundColor: '#07070F' },
-  bpLine:          { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed', flex: 1 },
-  bpBody:          { padding: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  bpField:         { minWidth: 90 },
-  bpFieldLabel:    { color: 'rgba(242,245,248,0.55)', fontSize: 9, fontWeight: '700', letterSpacing: 1,
-                     textTransform: 'uppercase', marginBottom: 4 },
-  bpFieldValue:    { color: 'rgba(242,245,248,0.7)', fontSize: 14, fontWeight: '600' },
-  qrPlaceholder:   { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 16, alignItems: 'center',
-                     borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  qrToken:         { color: BRAND, fontSize: 18, fontWeight: '700', letterSpacing: 4, fontFamily: 'monospace' },
-  qrSub:           { color: 'rgba(242,245,248,0.55)', fontSize: 10, marginTop: 4 },
-
-  legRow:          { flexDirection: 'row', marginBottom: 4 },
-  legLeft:         { width: 20, alignItems: 'center' },
-  legDot:          { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
-  legLine:         { width: 2, flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginTop: 4, marginBottom: -4 },
-  legContent:      { flex: 1, flexDirection: 'row', alignItems: 'flex-start', paddingBottom: 18,
-                     paddingLeft: 10, gap: 8 },
-  legInfo:         { flex: 1 },
-  legLabel:        { color: 'rgba(242,245,248,0.7)', fontSize: 13, fontWeight: '500' },
-  legTime:         { color: 'rgba(242,245,248,0.35)', fontSize: 11, marginTop: 2 },
-  legStatusBadge:  { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  legStatusText:   { fontSize: 10, fontWeight: '600', textTransform: 'uppercase' },
-
-  onIslandText:    { color: 'rgba(242,245,248,0.5)', fontSize: 14, lineHeight: 20, marginBottom: 14 },
-  addOnRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12,
-                     borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' },
-  addOnLabel:      { color: 'rgba(242,245,248,0.6)', fontSize: 14 },
-
-  footer:          { alignItems: 'center', paddingVertical: 20 },
-  footerRef:       { color: 'rgba(242,245,248,0.55)', fontSize: 12, fontFamily: 'monospace', letterSpacing: 2 },
-  footerSub:       { color: 'rgba(242,245,248,0.55)', fontSize: 11, marginTop: 2 },
-});

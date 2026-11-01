@@ -103,8 +103,11 @@ export function usePlatformFlags() {
 
         // An admin flipping a switch should reach a phone already open, not
         // only the next cold start.
+        // A unique name per hook instance: supabase-js returns the SAME channel
+        // object for a repeated name, and that object throws if .on() is called
+        // after subscribe(). Home and the Services tab both mount this hook.
         const channel = supabase
-            .channel('platform-flags')
+            .channel(`platform-flags-${Math.random().toString(36).slice(2)}`)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'system_feature_flags' },

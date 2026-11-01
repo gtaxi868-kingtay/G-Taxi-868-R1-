@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, SafeAreaView, Image, Alert,
-} from 'react-native';
+import { View, FlatList, Pressable, RefreshControl, Image, Alert, Modal } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
@@ -11,14 +11,8 @@ import { supabase } from '@gtaxi/core';
 import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip } from '../context/EscapeContext';
 import { usePlatformFlags } from '../hooks/usePlatformFlags';
-
-const BRAND = '#22D3EE';
-// Non-tappable text/decoration that used to borrow BRAND cyan purely for
-// "brand color" reasons -- cyan is reserved for things the rider can
-// actually tap (buttons, selected chips, active toggles). Everything else
-// -- names, taglines, status badges, progress fills, bullet points --
-// uses this neutral secondary tone instead.
-const NEUTRAL = 'rgba(242,245,248,0.5)';
+import { toast } from '../components/Toast';
+import { BRAND_GRADIENT, Button, Card, Chip, EmptyState, GUTTER, Header, IconButton, Loading, RADIUS, Row, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeStorefront'>;
 
@@ -168,14 +162,14 @@ export default function EscapeStorefrontScreen() {
 
   const joinLane = async () => {
     if (!laneDest || !laneMonth) {
-      Alert.alert('Pick a route', 'Choose an island and a month first.');
+      toast('Choose an island and a month first.', 'error');
       return;
     }
     setLaneSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        Alert.alert('Sign in required', 'Log in to join the interest list.');
+        toast('Please sign in first.', 'error');
         return;
       }
       const dest = LANE_DESTINATIONS.find(d => d.code === laneDest)!;
@@ -188,9 +182,9 @@ export default function EscapeStorefrontScreen() {
       });
       if (error) {
         if ((error as any).code === '23505') {
-          Alert.alert('Already on the list', `You're already holding seats for ${dest.name} that month.`);
+          toast(`You're already on the list for ${dest.name} that month.`);
         } else {
-          Alert.alert('Could not join', error.message);
+          toast(error.message, 'error');
         }
         return;
       }
@@ -205,6 +199,7 @@ export default function EscapeStorefrontScreen() {
       setLaneDest(null);
       setLaneMonth(null);
       setLaneParty(2);
+      toast(`You're on the list for ${dest.name}.`, 'success');
       loadMyLanes();
     } finally {
       setLaneSubmitting(false);
@@ -224,7 +219,7 @@ export default function EscapeStorefrontScreen() {
       .eq('id', id)
       .eq('rider_id', session.user.id);
     if (error) {
-      Alert.alert('Could not leave the list', error.message);
+      toast('Could not leave the list: ' + error.message, 'error');
       return;
     }
     loadMyLanes();
@@ -354,7 +349,7 @@ export default function EscapeStorefrontScreen() {
 
   const handleJoinPool = (pkg: EscapePackageCard) => {
     if (joinedPkgIds.has(pkg.id)) {
-      Alert.alert('Already joined', 'You\'re already in this group — check your active passes.');
+      toast("You're already on this trip.");
       return;
     }
     setSelectedPackage(pkg);
@@ -382,7 +377,7 @@ export default function EscapeStorefrontScreen() {
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      Alert.alert('Not logged in', 'Please sign in to book an escape.');
+      toast('Please sign in to book.', 'error');
       return;
     }
 
@@ -398,442 +393,184 @@ export default function EscapeStorefrontScreen() {
     });
   };
 
-  const fmt = (cents: number) => `TTD ${(cents / 100).toFixed(0)}`;
+  const fmt = (cents: number) => `TT$${((cents || 0) / 100).toFixed(0)}`;
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-TT', {
     weekday: 'short', day: 'numeric', month: 'short',
   });
+
+  const m = useTheme();
+  const insets = useSafeAreaInsets();
 
   const renderCard = ({ item }: { item: EscapePackageCard }) => {
     const fb = Array.isArray(item.flight_blocks) ? (item.flight_blocks as any[])[0] : item.flight_blocks;
     const ln = Array.isArray(item.lodging_nodes) ? (item.lodging_nodes as any[])[0] : item.lodging_nodes;
     if (!fb) return null;
 
-    const poolPct = Math.min(100, Math.round((fb.allocated_seats / fb.tipping_point_seats) * 100));
+    const poolPct = Math.min(100, Math.round((fb.allocated_seats / Math.max(1, fb.tipping_point_seats)) * 100));
     const seatsLeft = fb.tipping_point_seats - fb.allocated_seats;
     const isConfirmed = fb.status === 'CONFIRMED';
-    const nightCount = ln?.nights ?? undefined;
     const seatsAvailForGuest = item.max_total_guests - item.allocated_guests;
     const alreadyJoined = joinedPkgIds.has(item.id);
-    const isJoining = joiningPkgId === item.id;
+    const exp = DEST_EXPERIENCES[fb.destination_code];
 
     return (
-      <View style={styles.card}>
+      <Card style={{ padding: 0, overflow: 'hidden', marginBottom: SPACE.lg }}>
         {item.cover_image_url
-          ? <Image source={{ uri: item.cover_image_url }} style={styles.coverImg} />
-          : <View style={[styles.coverImg, styles.coverPlaceholder]}>
-              <Text style={styles.coverPlaceholderText}>{fb.destination_code}</Text>
-            </View>
-        }
-
-        <View style={[styles.statusBadge, isConfirmed ? styles.statusConfirmed : styles.statusPooling]}>
-          <Text style={[styles.statusText, isConfirmed && styles.statusTextConfirmed]}>{isConfirmed ? 'CONFIRMED' : 'Gathering the crew'}</Text>
-        </View>
-
-        {alreadyJoined && (
-          <View style={styles.joinedBadge}>
-            <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-            <Text style={styles.joinedText}>Joined</Text>
-          </View>
-        )}
-
-        <View style={styles.cardBody}>
-          <Text style={styles.destination}>{fb.destination_name}</Text>
-          <Text style={styles.pkgName}>{item.package_name}</Text>
-          {item.tagline ? <Text style={styles.tagline}>{item.tagline}</Text> : null}
-
-          {DEST_EXPERIENCES[fb.destination_code] && (
-            <View style={styles.experienceCard}>
-              <Text style={styles.experienceTagline}>{DEST_EXPERIENCES[fb.destination_code].tagline}</Text>
-              {DEST_EXPERIENCES[fb.destination_code].highlights.map((h, i) => (
-                <View key={i} style={styles.highlightRow}>
-                  <View style={styles.highlightDot} />
-                  <Text style={styles.highlightText}>{h}</Text>
-                </View>
-              ))}
-            </View>
+          ? <Image source={{ uri: item.cover_image_url }} style={{ height: 160, width: '100%' }} />
+          : (
+            <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: 120, alignItems: 'center', justifyContent: 'center' }}>
+              <Txt variant="hero" tone="onBrand">{fb.destination_code}</Txt>
+            </LinearGradient>
           )}
-
-          <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.4)" />
-            <Text style={styles.meta}>{fmtDate(fb.departure_time)}</Text>
-            {nightCount ? <Text style={styles.metaSep}>·</Text> : null}
-            {nightCount ? <Text style={styles.meta}>{nightCount}N</Text> : null}
-            {ln?.name ? <Text style={styles.metaSep}>·</Text> : null}
-            {ln?.name ? <Text style={styles.meta} numberOfLines={1}>{ln.name}</Text> : null}
+        <View style={{ padding: SPACE.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Txt variant="label" tone={isConfirmed ? 'success' : 'accent'} style={{ flex: 1 }}>{isConfirmed ? 'Flight confirmed' : 'Filling up'}</Txt>
+            {alreadyJoined && <Txt variant="label" tone="success">You're in</Txt>}
           </View>
+          <Txt variant="title" style={{ marginTop: SPACE.xs }}>{fb.destination_name}</Txt>
+          <Txt variant="body" tone="dim">{item.package_name}</Txt>
+          {item.tagline || exp ? <Txt variant="body" style={{ marginTop: SPACE.sm }}>{item.tagline || exp?.tagline}</Txt> : null}
+          {exp && exp.highlights.map((h, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
+              <Txt variant="body" tone="accent">·  </Txt>
+              <Txt variant="caption" tone="dim" style={{ flex: 1 }}>{h}</Txt>
+            </View>
+          ))}
+          <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.md }}>
+            {[fmtDate(fb.departure_time), ln?.nights ? `${ln.nights} nights` : null, ln?.name].filter(Boolean).join(' · ')}
+          </Txt>
 
           {!isConfirmed && (
-            <View style={styles.poolSection}>
-              <View style={styles.poolHeader}>
-                <Text style={styles.poolLabel}>Flight pool</Text>
-                <Text style={styles.poolCount}>{fb.allocated_seats} / {fb.tipping_point_seats}</Text>
+            <View style={{ marginTop: SPACE.md }}>
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: m.field, overflow: 'hidden' }}>
+                <View style={{ height: 6, width: `${poolPct}%` as any, backgroundColor: '#8B7CFF' }} />
               </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${poolPct}%` as any }]} />
-              </View>
-              <Text style={styles.poolSub}>
-                {seatsLeft > 0
-                  ? `${seatsLeft} more seat${seatsLeft !== 1 ? 's' : ''} to lock the flight`
-                  : 'Tipping point reached'}
-              </Text>
+              <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs }}>
+                {seatsLeft > 0 ? `${fb.allocated_seats} of ${fb.tipping_point_seats} seats · ${seatsLeft} more to confirm the flight` : 'Enough seats filled'}
+              </Txt>
             </View>
           )}
 
-          {isConfirmed && (
-            <View style={styles.confirmedBanner}>
-              <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-              <Text style={styles.confirmedText}>Flight confirmed — seats guaranteed</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.lg }}>
+            <View style={{ flex: 1 }}>
+              <Txt variant="caption" tone="faint">From</Txt>
+              <Txt variant="headline">{fmt(item.price_per_person_cents)} <Txt variant="caption" tone="dim">per person</Txt></Txt>
             </View>
-          )}
-
-          <View style={styles.cardFooter}>
-            <View>
-              <Text style={styles.priceLabel}>FROM</Text>
-              <Text style={styles.price}>{fmt(item.price_per_person_cents)}<Text style={styles.pricePer}> /person</Text></Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.joinBtn,
-                (seatsAvailForGuest <= 0 || alreadyJoined) && styles.joinBtnDisabled,
-                isJoining && styles.joinBtnJoining,
-              ]}
+            <Button
+              title={seatsAvailForGuest <= 0 ? 'Full' : alreadyJoined ? 'Joined' : 'Join'}
+              size="md"
+              disabled={seatsAvailForGuest <= 0 || alreadyJoined}
               onPress={() => handleJoinPool(item)}
-              disabled={seatsAvailForGuest <= 0 || alreadyJoined || isJoining}
-              activeOpacity={0.85}
-            >
-              {isJoining ? (
-                <ActivityIndicator size="small" color="#07070F" />
-              ) : (
-                <Text style={styles.joinBtnText}>
-                  {seatsAvailForGuest <= 0 ? 'Full' : alreadyJoined ? 'Joined' : 'Join pool'}
-                </Text>
-              )}
-            </TouchableOpacity>
+            />
           </View>
         </View>
-      </View>
+      </Card>
     );
   };
 
-  const myBookingsSection = myBookings.length === 0 ? null : (
-    <View style={styles.myBookingsCard}>
-      <Text style={styles.laneRowLabel}>YOUR ESCAPES</Text>
-      {myBookings.map(b => {
-        const live = LIVE_BOOKING_STATUSES.has(b.status);
-        const fb = b.escape_packages?.flight_blocks;
-        const title = fb?.destination_name ?? b.escape_packages?.package_name ?? 'G Escape';
-        const row = (
-          <View style={styles.myBookingRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.myBookingTitle} numberOfLines={1}>{title}</Text>
-              <Text style={styles.myBookingMeta} numberOfLines={1}>
-                {fb?.departure_time ? fmtDate(fb.departure_time) + ' · ' : ''}
-                {b.guest_count} guest{b.guest_count !== 1 ? 's' : ''} · {fmt(b.total_price_cents)}
-                {b.booking_ref ? ` · ${b.booking_ref}` : ''}
-              </Text>
-            </View>
-            <Text style={[styles.myBookingStatus, live && styles.myBookingStatusLive]}>
-              {BOOKING_STATUS_LABEL[b.status] ?? b.status}
-            </Text>
-            {live && <Ionicons name="chevron-forward" size={16} color={BRAND} />}
-          </View>
-        );
-        // Only a live booking has a pass to open; history rows are read-only.
-        return live ? (
-          <TouchableOpacity key={b.id} onPress={() => navigation.navigate('ActivePass')} activeOpacity={0.8}>
-            {row}
-          </TouchableOpacity>
-        ) : (
-          <View key={b.id}>{row}</View>
-        );
-      })}
-    </View>
+  const header = (
+    <>
+      {activeTrip && (
+        <Card style={{ marginBottom: SPACE.lg, paddingVertical: SPACE.xs }}>
+          <Row icon="airplane" title="Your trip is booked" subtitle="Tap to see your pass" last onPress={() => navigation.navigate('ActivePass')} />
+        </Card>
+      )}
+      {myBookings.length > 0 && (
+        <Section title="Your escapes" style={{ marginTop: 0, marginBottom: SPACE.lg }}>
+          <Card style={{ paddingVertical: SPACE.xs }}>
+            {myBookings.map((b, i) => {
+              const live = LIVE_BOOKING_STATUSES.has(b.status);
+              const fb = b.escape_packages?.flight_blocks;
+              return (
+                <Row key={b.id}
+                  title={fb?.destination_name ?? b.escape_packages?.package_name ?? 'G Escape'}
+                  subtitle={[fb?.departure_time ? fmtDate(fb.departure_time) : null, `${b.guest_count} guest${b.guest_count !== 1 ? 's' : ''}`, fmt(b.total_price_cents), BOOKING_STATUS_LABEL[b.status] ?? b.status].filter(Boolean).join(' · ')}
+                  last={i === myBookings.length - 1}
+                  onPress={live ? () => navigation.navigate('ActivePass') : undefined} />
+              );
+            })}
+          </Card>
+        </Section>
+      )}
+      {visiblePackages.length > 0 && <Txt variant="overline" tone="faint" style={{ marginBottom: SPACE.md }}>TRIPS FILLING NOW</Txt>}
+    </>
   );
 
   const laneSection = (
-    <View style={styles.laneCard}>
-      <Text style={styles.laneTitle}>Don't see your island?</Text>
-      <Text style={styles.laneSub}>
-        Raise your hand. When enough riders want the same route, we take the numbers to the airline and open it.
-      </Text>
-
-      <Text style={styles.laneRowLabel}>ISLAND</Text>
-      <View style={styles.chipRow}>
-        {LANE_DESTINATIONS.map(d => (
-          <TouchableOpacity
-            key={d.code}
-            style={[styles.chip, laneDest === d.code && styles.chipActive]}
-            onPress={() => setLaneDest(laneDest === d.code ? null : d.code)}
-          >
-            <Text style={[styles.chipText, laneDest === d.code && styles.chipTextActive]}>{d.name}</Text>
-          </TouchableOpacity>
-        ))}
+    <Card style={{ marginTop: SPACE.md }}>
+      <Txt variant="title">Don't see your island?</Txt>
+      <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>
+        Raise your hand. When enough people want the same route, we take the numbers to the airline.
+      </Txt>
+      <Txt variant="overline" tone="faint" style={{ marginTop: SPACE.lg, marginBottom: SPACE.sm }}>ISLAND</Txt>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {LANE_DESTINATIONS.map(d => <Chip key={d.code} label={d.name} selected={laneDest === d.code} onPress={() => setLaneDest(laneDest === d.code ? null : d.code)} />)}
       </View>
-
-      <Text style={styles.laneRowLabel}>MONTH</Text>
-      <View style={styles.chipRow}>
-        {laneMonths.map(m => (
-          <TouchableOpacity
-            key={m.value}
-            style={[styles.chip, laneMonth === m.value && styles.chipActive]}
-            onPress={() => setLaneMonth(laneMonth === m.value ? null : m.value)}
-          >
-            <Text style={[styles.chipText, laneMonth === m.value && styles.chipTextActive]}>{m.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <Txt variant="overline" tone="faint" style={{ marginTop: SPACE.md, marginBottom: SPACE.sm }}>MONTH</Txt>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {laneMonths.map(mo => <Chip key={mo.value} label={mo.label} selected={laneMonth === mo.value} onPress={() => setLaneMonth(laneMonth === mo.value ? null : mo.value)} />)}
       </View>
-
-      <View style={styles.laneFooterRow}>
-        <View style={styles.stepper}>
-          <TouchableOpacity style={styles.stepBtn} onPress={() => setLaneParty(Math.max(1, laneParty - 1))}>
-            <Ionicons name="remove" size={16} color={BRAND} />
-          </TouchableOpacity>
-          <Text style={styles.stepVal}>{laneParty} seat{laneParty !== 1 ? 's' : ''}</Text>
-          <TouchableOpacity style={styles.stepBtn} onPress={() => setLaneParty(Math.min(10, laneParty + 1))}>
-            <Ionicons name="add" size={16} color={BRAND} />
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          style={[styles.laneJoinBtn, (!laneDest || !laneMonth || laneSubmitting) && styles.joinBtnDisabled]}
-          onPress={joinLane}
-          disabled={!laneDest || !laneMonth || laneSubmitting}
-          activeOpacity={0.85}
-        >
-          {laneSubmitting
-            ? <ActivityIndicator size="small" color="#07070F" />
-            : <Text style={styles.laneJoinText}>Join the list</Text>}
-        </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md }}>
+        <IconButton icon="remove" label="Fewer seats" onPress={() => setLaneParty(Math.max(1, laneParty - 1))} />
+        <Txt variant="bodyStrong" style={{ width: 80, textAlign: 'center' }}>{laneParty} seat{laneParty !== 1 ? 's' : ''}</Txt>
+        <IconButton icon="add" label="More seats" onPress={() => setLaneParty(Math.min(10, laneParty + 1))} />
       </View>
-
+      <Button title="Join the list" size="md" style={{ marginTop: SPACE.lg }} loading={laneSubmitting} disabled={!laneDest || !laneMonth} onPress={joinLane} />
       {myLanes.length > 0 && (
-        <View style={styles.myLanesWrap}>
-          <Text style={styles.laneRowLabel}>YOU'RE HOLDING SEATS FOR</Text>
-          {myLanes.map(l => (
-            <View key={l.id} style={styles.myLaneRow}>
-              <Ionicons name="airplane-outline" size={13} color={NEUTRAL} />
-              <Text style={styles.myLaneText}>
-                {l.destination_name ?? l.destination_code} · {new Date(l.travel_month + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })} · {l.party_size} seat{l.party_size !== 1 ? 's' : ''}
-              </Text>
-              <TouchableOpacity onPress={() => leaveLane(l.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.35)" />
-              </TouchableOpacity>
-            </View>
+        <View style={{ marginTop: SPACE.lg }}>
+          <Txt variant="overline" tone="faint" style={{ marginBottom: SPACE.sm }}>YOU'RE ON THE LIST FOR</Txt>
+          {myLanes.map((l, i) => (
+            <Row key={l.id} icon="airplane-outline"
+              title={l.destination_name ?? l.destination_code}
+              subtitle={`${new Date(l.travel_month + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })} · ${l.party_size} seat${l.party_size !== 1 ? 's' : ''}`}
+              last={i === myLanes.length - 1}
+              right={<Pressable accessibilityRole="button" accessibilityLabel="Leave this list" hitSlop={8} onPress={() => leaveLane(l.id)}><Ionicons name="close-circle" size={20} color={m.faint} /></Pressable>} />
           ))}
         </View>
       )}
-    </View>
+    </Card>
   );
 
+  const seatsOpen = selectedPackage ? selectedPackage.max_total_guests - selectedPackage.allocated_guests : 0;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>G Escape</Text>
-        <Text style={styles.headerSub}>Group Caribbean packages — split the flight</Text>
-      </View>
-
-      {activeTrip && (
-        <TouchableOpacity
-          style={styles.activeTripBanner}
-          onPress={() => navigation.navigate('ActivePass')}
-        >
-          <View style={styles.activeDot} />
-          <Text style={styles.activeTripText}>You have an active escape — tap to view</Text>
-          <Ionicons name="chevron-forward" size={16} color={BRAND} />
-        </TouchableOpacity>
-      )}
-
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={BRAND} />
-        </View>
-      ) : loadError ? (
-        <View style={styles.centered}>
-          <Ionicons name="cloud-offline-outline" size={40} color="#F87171" />
-          <Text style={[styles.emptyTitle, { color: '#F87171', marginTop: 12 }]}>Connection error</Text>
-          <Text style={styles.emptySub}>{loadError}</Text>
-          <TouchableOpacity onPress={loadPackages} style={styles.retryBtn}>
-            <Text style={styles.retryBtnText}>Try again</Text>
-          </TouchableOpacity>
-        </View>
+    <View style={{ flex: 1, backgroundColor: m.page }}>
+      <StatusBar style={m.statusBar} />
+      <Header title="G Escape" onBack={() => navigation.goBack()} />
+      {loading ? <Loading /> : loadError ? (
+        <EmptyState icon="cloud-offline-outline" title="Could not load trips" body="Check your connection and try again."
+          action={<Button title="Try again" variant="secondary" onPress={loadPackages} />} />
       ) : (
         <FlatList
           data={visiblePackages}
           keyExtractor={item => item.id}
           renderItem={renderCard}
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
+          contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: SPACE.sm, paddingBottom: insets.bottom + SPACE.xxl }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={m.accent} />}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyInline}>
-              <Ionicons name="airplane-outline" size={48} color="rgba(255,255,255,0.15)" />
-              <Text style={styles.emptyTitle}>No escapes available yet</Text>
-              <Text style={styles.emptySub}>Check back soon — or open a new route below.</Text>
-            </View>
-          }
-          ListHeaderComponent={myBookingsSection}
+          ListHeaderComponent={header}
+          ListEmptyComponent={<EmptyState icon="airplane-outline" title="No trips on sale right now" body="Check back soon, or ask for a new route below." />}
           ListFooterComponent={laneSection}
         />
       )}
 
-      {showGuestPicker && selectedPackage && (
-        <TouchableOpacity
-          style={styles.sheetOverlay}
-          activeOpacity={1}
-          onPress={() => setShowGuestPicker(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={styles.sheet}>
-            <Text style={styles.sheetTitle}>How many guests?</Text>
-            <Text style={styles.sheetSub}>
-              Including yourself. Each person gets a seat on the flight and a villa spot.
-            </Text>
-            <View style={styles.guestRow}>
-              {GUEST_OPTIONS.map(n => {
-                const seatsLeft = (selectedPackage.max_total_guests - selectedPackage.allocated_guests);
-                const disabled = n > seatsLeft;
-                return (
-                  <TouchableOpacity
-                    key={n}
-                    style={[styles.guestOption, guestCount === n && styles.guestOptionSelected, disabled && styles.guestOptionDisabled]}
-                    onPress={() => !disabled && setGuestCount(n)}
-                    disabled={disabled}
-                  >
-                    <Text style={[styles.guestOptionText, guestCount === n && styles.guestOptionTextSelected]}>
-                      {n}
-                    </Text>
-                    {n > 1 && <Text style={[styles.guestOptionLabel, guestCount === n && styles.guestOptionLabelSelected]}>ppl</Text>}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <View style={styles.sheetPriceRow}>
-              <Text style={styles.sheetPriceLabel}>Estimated total</Text>
-              <Text style={styles.sheetPrice}>
-                TTD {((selectedPackage.price_per_person_cents * guestCount) / 100).toFixed(0)}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.sheetCta} onPress={handleConfirmGuests}>
-              <Text style={styles.sheetCtaText}>Join group</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      )}
-    </SafeAreaView>
+      <Modal visible={showGuestPicker && !!selectedPackage} transparent animationType="slide" onRequestClose={() => setShowGuestPicker(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)' }} onPress={() => setShowGuestPicker(false)} accessibilityLabel="Close" />
+        <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+          <Txt variant="title">How many people?</Txt>
+          <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>Including you. Each person gets a seat and a place to stay.</Txt>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.lg }}>
+            {GUEST_OPTIONS.map(n => (
+              <Chip key={n} label={`${n} ${n === 1 ? 'person' : 'people'}`} selected={guestCount === n} onPress={() => n <= seatsOpen ? setGuestCount(n) : toast(`Only ${seatsOpen} place${seatsOpen !== 1 ? 's' : ''} left on this trip.`)} />
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: SPACE.md }}>
+            <Txt variant="body" tone="dim">Estimated total</Txt>
+            <Txt variant="headline">{selectedPackage ? fmt(selectedPackage.price_per_person_cents * guestCount) : ''}</Txt>
+          </View>
+          <Button title="Continue to checkout" style={{ marginTop: SPACE.xl }} onPress={handleConfirmGuests} />
+        </View>
+      </Modal>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  safe:             { flex: 1, backgroundColor: '#07070F' },
-  header:           { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
-  headerTitle:      { fontSize: 28, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.5 },
-  headerSub:        { fontSize: 13, color: 'rgba(242,245,248,0.42)', marginTop: 2 },
-  activeTripBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,211,238,0.08)',
-                      marginHorizontal: 16, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
-                      marginBottom: 10, borderWidth: 1, borderColor: 'rgba(34,211,238,0.2)', gap: 8 },
-  activeDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
-  activeTripText:   { flex: 1, color: BRAND, fontSize: 13, fontWeight: '500' },
-  centered:         { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  emptyTitle:       { color: '#EAF3F6', fontSize: 18, fontWeight: '700', textAlign: 'center', marginTop: 12 },
-  emptySub:         { color: 'rgba(242,245,248,0.42)', fontSize: 14, textAlign: 'center', marginTop: 8, lineHeight: 20 },
-  retryBtn:         { marginTop: 16, backgroundColor: BRAND, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 },
-  retryBtnText:     { color: '#07070F', fontWeight: '700', fontSize: 14 },
-  list:             { paddingHorizontal: 16, paddingBottom: 40 },
-  joinedBadge:      { position: 'absolute', top: 44, right: 12, flexDirection: 'row', alignItems: 'center',
-                      backgroundColor: '#22C55E22', borderRadius: 8,
-                      paddingHorizontal: 8, paddingVertical: 3, gap: 4,
-                      borderWidth: 1, borderColor: '#22C55E44' },
-  joinedText:       { color: '#22C55E', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-
-  card:             { backgroundColor: '#13171D', borderRadius: 20, marginBottom: 16, overflow: 'hidden',
-                      borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  coverImg:         { width: '100%', height: 160, resizeMode: 'cover' },
-  coverPlaceholder: { backgroundColor: '#1A1F27', justifyContent: 'center', alignItems: 'center' },
-  coverPlaceholderText: { color: NEUTRAL, fontSize: 32, fontWeight: '200', letterSpacing: 4 },
-  statusBadge:      { position: 'absolute', top: 12, left: 12, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  statusPooling:    { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
-  statusConfirmed:  { backgroundColor: '#22C55E22', borderWidth: 1, borderColor: '#22C55E44' },
-  statusText:       { color: NEUTRAL, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  statusTextConfirmed: { color: '#22C55E' },
-  cardBody:         { padding: 16 },
-  destination:      { fontSize: 22, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.3 },
-  pkgName:          { fontSize: 13, color: NEUTRAL, fontWeight: '600', marginTop: 2 },
-  tagline:          { fontSize: 12, color: 'rgba(242,245,248,0.42)', marginTop: 3 },
-  metaRow:          { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6, flexWrap: 'wrap' },
-  meta:             { color: 'rgba(242,245,248,0.5)', fontSize: 12 },
-  metaSep:          { color: 'rgba(242,245,248,0.55)', fontSize: 12 },
-  poolSection:      { marginTop: 14 },
-  poolHeader:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  poolLabel:        { color: 'rgba(242,245,248,0.42)', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  poolCount:        { color: '#EAF3F6', fontSize: 11, fontWeight: '600' },
-  progressTrack:    { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
-  progressFill:     { height: 4, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 2 },
-  poolSub:          { color: 'rgba(242,245,248,0.35)', fontSize: 10, marginTop: 6 },
-  confirmedBanner:  { marginTop: 12, backgroundColor: '#22C55E11', borderRadius: 8, paddingVertical: 8,
-                      paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6,
-                      borderWidth: 1, borderColor: '#22C55E22' },
-  confirmedText:    { color: '#22C55E', fontSize: 12, fontWeight: '600' },
-  cardFooter:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
-  priceLabel:       { color: 'rgba(242,245,248,0.35)', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  price:            { color: '#EAF3F6', fontSize: 18, fontWeight: '800' },
-  pricePer:         { color: 'rgba(242,245,248,0.42)', fontSize: 12, fontWeight: '400' },
-  joinBtn:          { backgroundColor: BRAND, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 12, minWidth: 110, alignItems: 'center' },
-  joinBtnDisabled:  { backgroundColor: 'rgba(255,255,255,0.06)', opacity: 0.6 },
-  joinBtnJoining:   { opacity: 0.7 },
-  joinBtnText:      { color: '#07070F', fontWeight: '700', fontSize: 14 },
-
-  experienceCard:     { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 12, marginTop: 10,
-                        marginBottom: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  experienceTagline:  { color: NEUTRAL, fontSize: 11, fontStyle: 'italic', marginBottom: 8, lineHeight: 15 },
-  highlightRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 4 },
-  highlightDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)', marginTop: 5, flexShrink: 0 },
-  highlightText:      { color: 'rgba(242,245,248,0.5)', fontSize: 11, lineHeight: 15, flex: 1 },
-
-  sheetOverlay:     { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
-                      justifyContent: 'flex-end' },
-  sheet:            { backgroundColor: '#13171D', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-                      padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderBottomWidth: 0 },
-  sheetTitle:       { color: '#EAF3F6', fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  sheetSub:         { color: 'rgba(242,245,248,0.5)', fontSize: 13, lineHeight: 18, marginBottom: 20 },
-  guestRow:         { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  guestOption:      { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.04)',
-                      alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  guestOptionSelected: { backgroundColor: `${BRAND}1F`, borderColor: BRAND },
-  guestOptionDisabled: { opacity: 0.3 },
-  guestOptionText:  { color: '#EAF3F6', fontSize: 20, fontWeight: '700' },
-  guestOptionTextSelected: { color: BRAND },
-  guestOptionLabel:  { color: 'rgba(242,245,248,0.35)', fontSize: 9, marginTop: 2 },
-  guestOptionLabelSelected: { color: BRAND },
-  sheetPriceRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  sheetPriceLabel:  { color: 'rgba(242,245,248,0.5)', fontSize: 14 },
-  sheetPrice:       { color: '#10B981', fontSize: 22, fontWeight: '800' },
-  sheetCta:         { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  sheetCtaText:     { color: '#07070F', fontWeight: '800', fontSize: 16 },
-
-  // Lane interest ("open a route we don't fly yet")
-  emptyInline:      { alignItems: 'center', paddingVertical: 48 },
-  laneCard:         { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 20, marginTop: 8, marginBottom: 24, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.12)' },
-  laneTitle:        { color: '#F2F5F8', fontSize: 18, fontWeight: '800' },
-  laneSub:          { color: 'rgba(242,245,248,0.55)', fontSize: 13, lineHeight: 19, marginTop: 4, marginBottom: 14 },
-  laneRowLabel:     { color: 'rgba(242,245,248,0.4)', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 8 },
-  chipRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
-  chip:             { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)' },
-  chipActive:       { backgroundColor: 'rgba(34,211,238,0.16)', borderColor: BRAND },
-  chipText:         { color: 'rgba(242,245,248,0.65)', fontSize: 12, fontWeight: '600' },
-  chipTextActive:   { color: BRAND },
-  laneFooterRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
-  stepper:          { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepBtn:          { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(34,211,238,0.12)', alignItems: 'center', justifyContent: 'center' },
-  stepVal:          { color: '#F2F5F8', fontSize: 13, fontWeight: '700', minWidth: 56, textAlign: 'center' },
-  laneJoinBtn:      { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 22 },
-  laneJoinText:     { color: '#07070F', fontWeight: '800', fontSize: 14 },
-  myLanesWrap:      { marginTop: 18 },
-  myLaneRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
-  myLaneText:       { color: 'rgba(242,245,248,0.8)', fontSize: 13, flex: 1 },
-
-  // Your escapes (merged in from the old Travel "My Bookings" screen)
-  myBookingsCard:   { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.12)' },
-  myBookingRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.06)' },
-  myBookingTitle:   { color: '#F2F5F8', fontSize: 15, fontWeight: '700' },
-  myBookingMeta:    { color: 'rgba(242,245,248,0.5)', fontSize: 12, marginTop: 2 },
-  myBookingStatus:  { color: NEUTRAL, fontSize: 11, fontWeight: '600', maxWidth: 130, textAlign: 'right' },
-  myBookingStatusLive: { color: '#22C55E' },
-});
