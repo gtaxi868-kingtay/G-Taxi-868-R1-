@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, TextInput, Pressable, FlatList, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../components/Toast';
-import { BRAND_GRADIENT, BrandBadge, Chip, EmptyState, FONT, GUTTER, Header, IconButton, Loading, SPACE, Txt, useTheme } from '../ui/kit';
+import { CrystalGradient, BRAND_GRADIENT, BrandBadge, Chip, EmptyState, FONT, GUTTER, Header, IconButton, Loading, SPACE, Txt, useTheme } from '../ui/kit';
 
 interface Message {
     id: string;
@@ -90,9 +89,9 @@ export function ChatScreen({ route, navigation }: any) {
                 <View style={{ maxWidth: '80%', borderRadius: 20, borderBottomRightRadius: isSelf ? 6 : 20, borderBottomLeftRadius: isSelf ? 20 : 6, overflow: 'hidden',
                     backgroundColor: isSelf ? undefined : m.field }}>
                     {isSelf ? (
-                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md }}>
+                        <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md }}>
                             <Txt variant="body" tone="onBrand">{item.content}</Txt>
-                        </LinearGradient>
+                        </CrystalGradient>
                     ) : (
                         <View style={{ paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md }}>
                             <Txt variant="body">{item.content}</Txt>

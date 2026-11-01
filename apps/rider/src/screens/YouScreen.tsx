@@ -1,12 +1,11 @@
 import React from 'react';
 import { Alert, Image, Pressable, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { KeyTile } from '../components/KeyTile';
-import { BRAND_GRADIENT, Pop, Row, Screen, Section, SPACE, tick, Txt, useTheme } from '../ui/kit';
+import { CrystalGradient, BRAND_GRADIENT, Pop, Row, Screen, Section, SPACE, tick, Txt, useTheme } from '../ui/kit';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -41,7 +40,7 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
                 <Pressable accessibilityRole="button" accessibilityLabel="Your profile" onPress={() => { tick(); navigation.navigate('Profile'); }}
                     style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}>
                     <View style={{ borderRadius: 24, overflow: 'hidden' }}>
-                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                             style={{ flexDirection: 'row', alignItems: 'center', padding: SPACE.lg }}>
                             <View style={{ width: 60, height: 60, borderRadius: 30, overflow: 'hidden', borderWidth: 3, borderColor: 'rgba(255,255,255,0.6)',
                                 backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
@@ -54,7 +53,7 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
                                 <Txt variant="caption" tone="onBrand" style={{ opacity: 0.85 }}>View and edit your profile</Txt>
                             </View>
                             <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-                        </LinearGradient>
+                        </CrystalGradient>
                     </View>
                 </Pressable>
             </Pop>

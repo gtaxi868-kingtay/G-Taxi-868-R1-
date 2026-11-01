@@ -33,7 +33,7 @@ import { KeyTile } from '../components/KeyTile';
 import { useServices, SERVICE_ROUTES, SERVICE_COLORS } from '../hooks/useServices';
 import type { Layer } from '../components/home/LayerDeck';
 import { greetingFor } from '../theme/mood';
-import {
+import { CrystalGradient,
     BRAND_GRADIENT, BrandBadge, Button, Card, Chip, EmptyState, Field, GUTTER, IconButton,
     Pop, Progress, RADIUS, Section, shade, SPACE, Txt, useTheme,
 } from '../ui/kit';
@@ -899,7 +899,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                             <View style={{ borderRadius: 20, backgroundColor: '#5B4BD6' }}>
                                 <Animated.View style={{ height: 60, borderRadius: 20, overflow: 'hidden', flexDirection: 'row', alignItems: 'center',
                                     paddingLeft: SPACE.lg, paddingRight: 8, transform: [{ translateY: searchDown }], marginBottom: 5 }}>
-                                    <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
+                                    <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
                                     <Ionicons name="search" size={22} color="#FFFFFF" />
                                     <Txt variant="headline" tone="onBrand" style={{ flex: 1, marginLeft: SPACE.md, fontSize: 19 }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
                                     {platformFlags.aiAssistant && (

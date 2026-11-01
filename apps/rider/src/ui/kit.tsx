@@ -122,6 +122,55 @@ export function shade(hex: string, amt = 0.22): string {
     return `rgb(${r},${g},${b})`;
 }
 
+// Lift a #RRGGBB colour toward white for the lit side of a crystal face.
+export function lighten(hex: string, amt = 0.35): string {
+    const h = hex.replace('#', '');
+    if (h.length !== 6) return 'rgba(255,255,255,0.5)';
+    const n = parseInt(h, 16);
+    const f = (c: number) => Math.min(255, Math.round(c + (255 - c) * amt));
+    const r = f((n >> 16) & 255), g = f((n >> 8) & 255), b = f(n & 255);
+    return `rgb(${r},${g},${b})`;
+}
+
+// The G 868 crystal, cut for a key: a lit-to-deep body, one angled facet, a
+// cyan-violet rim and a specular glint, the same layers as the logo on the
+// site. It sits behind the label and keeps the Duolingo lip and press.
+function Facets({ radius }: { radius: number }) {
+    return (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}>
+            <LinearGradient colors={['rgba(103,232,249,0.34)', 'rgba(103,232,249,0)', 'rgba(192,132,252,0.36)']}
+                start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFillObject} />
+            <View style={{ position: 'absolute', top: '-70%', left: '12%', width: '26%', height: '240%', backgroundColor: 'rgba(255,255,255,0.14)', transform: [{ rotate: '24deg' }] }} />
+            <View style={{ position: 'absolute', top: '-70%', left: '46%', width: '9%', height: '240%', backgroundColor: 'rgba(255,255,255,0.10)', transform: [{ rotate: '24deg' }] }} />
+            <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: radius, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.42)' }} />
+            <View style={{ position: 'absolute', top: 5, left: '14%', right: '40%', height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.72)' }} />
+        </View>
+    );
+}
+
+export function CrystalFace({ color, radius }: { color: string; radius: number }) {
+    return (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}>
+            <LinearGradient colors={[lighten(color, 0.3), color, shade(color, 0.28)]} locations={[0, 0.5, 1]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
+            <Facets radius={radius} />
+        </View>
+    );
+}
+
+// The brand gradient cut as crystal: use it anywhere a violet-to-cyan surface
+// is something you press or a card you read from.
+export function CrystalGradient({ children, ...props }: React.ComponentProps<typeof LinearGradient>) {
+    const flat = StyleSheet.flatten(props.style) as ViewStyle | undefined;
+    const radius = typeof flat?.borderRadius === 'number' ? flat.borderRadius : 0;
+    return (
+        <LinearGradient {...props} style={[props.style, { overflow: 'hidden' }]}>
+            <Facets radius={radius} />
+            {children}
+        </LinearGradient>
+    );
+}
+
 // Bouncy entrance for a block: pops up and settles. Use `delay` to stagger.
 export function Pop({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
     const v = useRef(new Animated.Value(0)).current;
@@ -290,10 +339,7 @@ export function Button({
                     borderWidth: variant === 'secondary' || variant === 'ghost' ? 2 : 0,
                     borderColor: variant === 'ghost' ? m.chipBorder : (m.key === 'day' ? '#E7E1F0' : '#3A3049'),
                 }}>
-                    {variant === 'primary' && !color ? (
-                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
-                    ) : null}
-                    {solid ? <View pointerEvents="none" style={{ position: 'absolute', top: 5, left: 14, right: 14, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.22)' }} /> : null}
+                    {solid ? <CrystalFace color={faceColor} radius={radius} /> : null}
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.xl }}>
                         {loading ? <ActivityIndicator color={fg} /> : (
                             <>
@@ -455,10 +501,10 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 // Brand gradient square/circle with an icon (service tiles, avatars)
 export function BrandBadge({ icon, size = 56, round }: { icon: IconName; size?: number; round?: boolean }) {
     return (
-        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={{ width: size, height: size, borderRadius: round ? size / 2 : 18, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name={icon} size={size * 0.42} color="#FFFFFF" />
-        </LinearGradient>
+        </CrystalGradient>
     );
 }
 

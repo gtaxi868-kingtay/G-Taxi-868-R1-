@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, Pressable, RefreshControl, Image, Alert, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,7 +11,7 @@ import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip } from '../context/EscapeContext';
 import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { toast } from '../components/Toast';
-import { BRAND_GRADIENT, Button, Card, Chip, EmptyState, GUTTER, Header, IconButton, Loading, RADIUS, Row, Section, SPACE, Txt, useTheme } from '../ui/kit';
+import { CrystalGradient, BRAND_GRADIENT, Button, Card, Chip, EmptyState, GUTTER, Header, IconButton, Loading, RADIUS, Row, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeStorefront'>;
 
@@ -418,9 +417,9 @@ export default function EscapeStorefrontScreen() {
         {item.cover_image_url
           ? <Image source={{ uri: item.cover_image_url }} style={{ height: 160, width: '100%' }} />
           : (
-            <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: 120, alignItems: 'center', justifyContent: 'center' }}>
+            <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: 120, alignItems: 'center', justifyContent: 'center' }}>
               <Txt variant="hero" tone="onBrand">{fb.destination_code}</Txt>
-            </LinearGradient>
+            </CrystalGradient>
           )}
         <View style={{ padding: SPACE.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
