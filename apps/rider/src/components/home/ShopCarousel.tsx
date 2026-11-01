@@ -80,7 +80,11 @@ function ShopCard({ shop, selected, onPress }: { shop: MapShop; selected: boolea
                             <View style={{ width: 7, height: 7, borderRadius: 4, marginRight: 5, backgroundColor: shop.is_open ? '#2FB57C' : m.faint }} />
                             <Txt variant="caption" tone="dim" numberOfLines={1}>{shop.is_open ? 'Open now' : 'Closed'}{dist ? ` · ${dist}` : ''}</Txt>
                         </View>
-                        {shop.is_featured ? (
+                        {shop.offer ? (
+                            <View style={{ marginTop: 4, paddingLeft: 7, borderLeftWidth: 3, borderLeftColor: shop.offer.accent_color }}>
+                                <Txt variant="caption" numberOfLines={1}>{shop.offer.headline}</Txt>
+                            </View>
+                        ) : shop.is_featured ? (
                             <View style={{ alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: '#FFB020' }}>
                                 <Txt variant="label" tone="onBrand" style={{ fontSize: 11 }}>Featured</Txt>
                             </View>

@@ -20,7 +20,7 @@ import { usualTrip, type UsualTrip } from '../utils/usualTrip';
 import { ShopPin } from '../components/home/ShopPin';
 import { ShopCarousel } from '../components/home/ShopCarousel';
 import { ShopActionSheet, type ShopAction } from '../components/home/ShopActionSheet';
-import { rankShops, type MapShop } from '../components/home/rankShops';
+import { attachOffers, rankShops, type MapShop } from '../components/home/rankShops';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -323,6 +323,19 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
             delivery_fee_cents: m.delivery_fee_cents ?? 0,
             is_usual: !!m.is_usual,
         });
+        // Offers are a layer on top: if they fail, the pins still show.
+        const showShops = (list: MapShop[]) => {
+            setShops(list);
+            if (list.length === 0) return;
+            supabase
+                .rpc('partner_offers_for_rider', { p_merchant_ids: list.map(s => s.id) })
+                .then(
+                    ({ data: offers, error }) => {
+                        if (!error && offers?.length) setShops(cur => attachOffers(cur, offers));
+                    },
+                    (err: unknown) => console.warn('[HomeScreen] partner offers failed:', err),
+                );
+        };
         supabase
             .rpc('g_rank_merchants', { p_rider_id: profile?.id ?? null, p_lat: lat, p_lng: lng, p_store_type: null, p_limit: 30 })
             .then(
@@ -332,12 +345,12 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                         supabase
                             .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: null })
                             .then(
-                                ({ data: fallback }) => setShops(rankShops((fallback || []).map(toShop))),
+                                ({ data: fallback }) => showShops(rankShops((fallback || []).map(toShop))),
                                 (err: unknown) => console.warn('[HomeScreen] shop pins failed:', err),
                             );
                         return;
                     }
-                    setShops(rankShops(data.map(toShop)));
+                    showShops(rankShops(data.map(toShop)));
                 },
                 (err: unknown) => console.warn('[HomeScreen] g_rank_merchants failed:', err),
             );
