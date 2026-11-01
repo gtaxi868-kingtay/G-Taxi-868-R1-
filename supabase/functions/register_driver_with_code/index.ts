@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { commander_code, name, phone_number, vehicle_model, plate_number, vehicle_type } = await req.json()
+    const { commander_code, name, phone_number, vehicle_model, plate_number, vehicle_type, driver_referral_code } = await req.json()
 
     if (!commander_code || !name) {
       return new Response(
@@ -150,14 +150,55 @@ Deno.serve(async (req) => {
       .update({ role: 'driver' })
       .eq('id', user.id)
 
-    await supabaseAdmin.rpc('send_push_notification', {
-      p_user_id: commander.user_id,
-      p_title: 'New Driver Registration',
-      p_body: `${name} registered with your commander code`,
-    }).maybeSingle()
+    // Notify the commander. send_push_notification is an EDGE FUNCTION,
+    // not a database procedure — the previous supabaseAdmin.rpc(...) call
+    // targeted a procedure that does not exist in that shape, so this
+    // notification could never land (group6 review). Invoke it over HTTP
+    // like the other server-side callers (travel/index.ts): the deployed
+    // send_push_notification accepts the service-role bearer on its
+    // dual-path auth and the { user_id, title, body, data } contract.
+    // Fire-and-forget: the registration above is already committed, so a
+    // push failure is logged and swallowed — never failed back to the
+    // driver who just registered.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    await fetch(`${supabaseUrl}/functions/v1/send_push_notification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+      body: JSON.stringify({
+        user_id: commander.user_id,
+        title: 'New Driver Registration',
+        body: `${name} registered with your commander code`,
+        data: { type: 'driver_registration', driver_id: driver.id, commander_id: commander.id },
+      }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        console.error(`register_driver_with_code: commander push returned ${res.status}:`, await res.text().catch(() => ''))
+      }
+    }).catch((err) => console.error('register_driver_with_code: commander push failed (non-fatal):', err))
+
+    // Driver-refers-driver: separate from the mandatory commander_code above
+    // (that ties the new driver to a territory; this is optional, one driver
+    // crediting another). apply_referral_code validates the code, blocks
+    // self-referral and reuse, and pays the signup bonus. Non-fatal: a bad or
+    // absent code must never block registration.
+    let referralResult: { success: boolean; error?: string } | null = null
+    if (driver_referral_code && typeof driver_referral_code === 'string' && driver_referral_code.trim()) {
+      const { data: referralData, error: referralError } = await supabaseAdmin
+        .rpc('apply_referral_code', {
+          p_referee_id: user.id,
+          p_code: driver_referral_code.trim().toUpperCase(),
+          p_type: 'driver',
+        })
+      if (referralError) {
+        console.error('apply_referral_code failed (non-fatal):', referralError)
+      } else {
+        referralResult = referralData as { success: boolean; error?: string }
+      }
+    }
 
     return new Response(
-      JSON.stringify({ success: true, driver, commander_id: commander.id }),
+      JSON.stringify({ success: true, driver, commander_id: commander.id, referral: referralResult }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err: any) {

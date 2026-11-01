@@ -1,0 +1,159 @@
+name: Roll Back Production Functions
+
+# Redeploys 1-5 explicitly named edge functions from a known-good ref.
+# Each function's LIVE verify_jwt is read from the Management API and preserved
+# (webhooks and cron-secret callers must stay verify_jwt=false). Fails closed if
+# the lookup fails, or if that ref's supabase/config.toml disagrees with live.
+# Never touches database migrations.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type rollback to redeploy the selected known-good commit'
+        required: true
+        default: ''
+      ref:
+        description: 'Known-good commit, tag, or branch containing compatible functions'
+        required: true
+      functions:
+        description: 'REQUIRED: space-separated function names to redeploy (1-5)'
+        required: true
+
+jobs:
+  rollback:
+    name: Redeploy known-good functions
+    if: ${{ inputs.confirm == 'rollback' }}
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate function list and read live verify_jwt
+        id: plan
+        env:
+          FUNCTIONS_INPUT: ${{ inputs.functions }}
+          ROLLBACK_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN secret is not set}"
+          : "${PROJECT_ID:?SUPABASE_PROJECT_ID secret is not set}"
+
+          read -r -a FNS <<< "${FUNCTIONS_INPUT:-}"
+          if [ "${#FNS[@]}" -eq 0 ]; then
+            echo "::error::No function names given. Name 1-5 functions explicitly."
+            exit 1
+          fi
+          if [ "${#FNS[@]}" -gt 5 ]; then
+            echo "::error::${#FNS[@]} functions requested; the limit is 5 per run (CLAUDE.md: deploy in batches of 3-5)."
+            exit 1
+          fi
+          if [ -n "$(printf '%s\n' "${FNS[@]}" | sort | uniq -d)" ]; then
+            echo "::error::Duplicate function names in input."
+            exit 1
+          fi
+
+          PLAN="$RUNNER_TEMP/function_deploy_plan.tsv"
+          : > "$PLAN"
+          for fn in "${FNS[@]}"; do
+            if ! [[ "$fn" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+              echo "::error::Invalid function name: '$fn'"
+              exit 1
+            fi
+            if [ ! -d "supabase/functions/$fn" ]; then
+              echo "::error::supabase/functions/$fn does not exist at ref '$ROLLBACK_REF'."
+              exit 1
+            fi
+
+            body="$RUNNER_TEMP/fn_${fn}.json"
+            if ! code=$(curl -sS -o "$body" -w '%{http_code}' \
+                -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+                "https://api.supabase.com/v1/projects/$PROJECT_ID/functions/$fn"); then
+              echo "::error::Management API request failed for '$fn'. Refusing to redeploy without knowing its live verify_jwt."
+              exit 1
+            fi
+            if [ "$code" != "200" ]; then
+              echo "::error::Could not read live settings for '$fn' (HTTP $code). Refusing to redeploy."
+              exit 1
+            fi
+            live=$(jq -r 'if (.verify_jwt | type) == "boolean" then (.verify_jwt | tostring) else "unknown" end' "$body")
+            if [ "$live" = "unknown" ]; then
+              echo "::error::Live response for '$fn' has no boolean verify_jwt. Refusing to redeploy."
+              exit 1
+            fi
+
+            declared=$(python3 - "$fn" <<'PY'
+          import os, sys, tomllib
+          path = "supabase/config.toml"
+          if not os.path.exists(path):
+              print("unset"); sys.exit(0)
+          with open(path, "rb") as f:
+              cfg = tomllib.load(f)
+          v = cfg.get("functions", {}).get(sys.argv[1], {}).get("verify_jwt")
+          print("unset" if v is None else str(bool(v)).lower())
+          PY
+            )
+            if [ "$declared" != "unset" ] && [ "$declared" != "$live" ]; then
+              echo "::error::config.toml at this ref sets verify_jwt=$declared for '$fn' but LIVE is verify_jwt=$live. The CLI would apply the config.toml value. Refusing to redeploy."
+              exit 1
+            fi
+
+            printf '%s\t%s\n' "$fn" "$live" >> "$PLAN"
+            echo "$fn: live verify_jwt=$live (config.toml at ref: $declared)"
+          done
+
+      - name: Redeploy selected functions (verify_jwt preserved)
+        id: deploy_fns
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r fn live; do
+            if [ "$live" = "false" ]; then
+              echo "Redeploying $fn with --no-verify-jwt (live verify_jwt=false)"
+              supabase functions deploy "$fn" --project-ref "$PROJECT_ID" --no-verify-jwt
+            else
+              echo "Redeploying $fn with JWT verification (live verify_jwt=true)"
+              supabase functions deploy "$fn" --project-ref "$PROJECT_ID"
+            fi
+          done < "$RUNNER_TEMP/function_deploy_plan.tsv"
+
+      - name: Confirm verify_jwt unchanged on live
+        if: ${{ !cancelled() && steps.plan.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          fail=0
+          while IFS=$'\t' read -r fn expected; do
+            if ! resp=$(curl -sS --fail \
+                -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+                "https://api.supabase.com/v1/projects/$PROJECT_ID/functions/$fn"); then
+              echo "::error::Post-deploy lookup failed for '$fn'. Check its verify_jwt by hand NOW."
+              fail=1
+              continue
+            fi
+            now=$(jq -r '.verify_jwt | tostring' <<< "$resp")
+            version=$(jq -r '.version | tostring' <<< "$resp")
+            if [ "$now" != "$expected" ]; then
+              echo "::error::'$fn' verify_jwt changed: was $expected, now $now (version $version). Fix immediately."
+              fail=1
+            else
+              echo "$fn: version $version, verify_jwt=$now (unchanged)"
+            fi
+          done < "$RUNNER_TEMP/function_deploy_plan.tsv"
+          exit "$fail"
+
+      - name: Verify production health
+        if: env.HEALTHCHECK_URL != ''
+        run: ./scripts/check-deployment-health.sh "$HEALTHCHECK_URL"

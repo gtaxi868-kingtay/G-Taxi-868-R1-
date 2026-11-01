@@ -6,9 +6,9 @@
 {$DOMAIN} {
   encode gzip
 
-  @status path /status* /health* /ready*
+  @status path /status
   respond @status 200 {
-    body "ok"
+    body "ok\n"
     close
   }
 
@@ -19,10 +19,44 @@
     reverse_proxy jarvis:8000
   }
 
-  reverse_proxy uptime-kuma:3001
+  # Optional blue/green HTTP service. This is for services hosted on this VPS;
+  # Supabase Edge Functions remain managed by Supabase and use the promotion
+  # workflows under .github/workflows/.
+  @service path /ops/*
+  handle @service {
+    uri strip_prefix /ops
+    reverse_proxy {$BLUE_UPSTREAM} {$GREEN_UPSTREAM} {
+      lb_policy first
+      health_uri /ready
+      health_interval 10s
+      health_timeout 3s
+      fail_duration 30s
+      max_fails 2
+    }
+  }
+
+  handle {
+    reverse_proxy uptime-kuma:3001
+  }
 }
 
 localhost {
   encode gzip
-  reverse_proxy uptime-kuma:3001
+
+  @service path /ops/*
+  handle @service {
+    uri strip_prefix /ops
+    reverse_proxy {$BLUE_UPSTREAM} {$GREEN_UPSTREAM} {
+      lb_policy first
+      health_uri /ready
+      health_interval 10s
+      health_timeout 3s
+      fail_duration 30s
+      max_fails 2
+    }
+  }
+
+  handle {
+    reverse_proxy uptime-kuma:3001
+  }
 }
