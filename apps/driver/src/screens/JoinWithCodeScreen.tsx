@@ -33,6 +33,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
     const [vehicleModel, setVehicleModel] = useState('');
     const [licensePlate, setLicensePlate] = useState('');
     const [vehicleType, setVehicleType] = useState('Standard');
+    const [driverReferralCode, setDriverReferralCode] = useState('');
 
     const goBack = () => { onBack?.(); navigation?.goBack(); };
 
@@ -89,6 +90,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                     vehicle_model: vehicleModel.trim() || null,
                     plate_number: licensePlate.trim().toUpperCase() || null,
                     vehicle_type: vehicleType.toLowerCase(),
+                    driver_referral_code: driverReferralCode.trim().toUpperCase() || null,
                 },
             });
             if (error || !data?.success) {
@@ -158,6 +160,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                         {renderInput('Password', password, setPassword, { secureTextEntry: true })}
                         {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}
                         {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
+                        {renderInput('Referred by a driver? Their code (optional)', driverReferralCode, setDriverReferralCode, { autoCapitalize: 'characters' })}
 
                         <Text style={s.label}>VEHICLE CLASS</Text>
                         <View style={s.typeSelector}>

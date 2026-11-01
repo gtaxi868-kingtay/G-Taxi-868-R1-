@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { commander_code, name, phone_number, vehicle_model, plate_number, vehicle_type } = await req.json()
+    const { commander_code, name, phone_number, vehicle_model, plate_number, vehicle_type, driver_referral_code } = await req.json()
 
     if (!commander_code || !name) {
       return new Response(
@@ -156,8 +156,28 @@ Deno.serve(async (req) => {
       p_body: `${name} registered with your commander code`,
     }).maybeSingle()
 
+    // Driver-refers-driver: separate from the mandatory commander_code above
+    // (that ties the new driver to a territory; this is optional, one driver
+    // crediting another). apply_referral_code validates the code, blocks
+    // self-referral and reuse, and pays the signup bonus. Non-fatal: a bad or
+    // absent code must never block registration.
+    let referralResult: { success: boolean; error?: string } | null = null
+    if (driver_referral_code && typeof driver_referral_code === 'string' && driver_referral_code.trim()) {
+      const { data: referralData, error: referralError } = await supabaseAdmin
+        .rpc('apply_referral_code', {
+          p_referee_id: user.id,
+          p_code: driver_referral_code.trim().toUpperCase(),
+          p_type: 'driver',
+        })
+      if (referralError) {
+        console.error('apply_referral_code failed (non-fatal):', referralError)
+      } else {
+        referralResult = referralData as { success: boolean; error?: string }
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, driver, commander_id: commander.id }),
+      JSON.stringify({ success: true, driver, commander_id: commander.id, referral: referralResult }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err: any) {

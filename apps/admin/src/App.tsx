@@ -276,7 +276,7 @@ function App() {
                         </button>
                         <button
                             onClick={async () => {
-                                if (!window.confirm('Permanently delete your account and all associated data? This cannot be undone.')) return;
+                                if (!window.confirm('Start a 30-day deletion request? You can cancel it during those 30 days. After that, personal details are anonymized and records the law requires us to keep are retained.')) return;
                                 try {
                                     const { error } = await supabase.functions.invoke('delete_account');
                                     if (error) throw error;

@@ -77,20 +77,20 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         Alert.alert(
             'Delete Account',
-            'This permanently deletes your account, all trip history, and earnings data. This cannot be undone.',
+            'This starts a 30-day deletion request. You can cancel it during those 30 days. After that, personal details are anonymized and records the law requires us to keep are retained.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Yes, Delete Everything',
+                    text: 'Continue',
                     style: 'destructive',
                     onPress: () => {
                         Alert.alert(
                             'Final Confirmation',
-                            'Type "DELETE" to confirm. Your account will be permanently removed.',
+                            'Start the 30-day deletion request now? You will be signed out.',
                             [
                                 { text: 'Cancel', style: 'cancel' },
                                 {
-                                    text: 'Confirm Delete',
+                                    text: 'Request Deletion',
                                     style: 'destructive',
                                     onPress: async () => {
                                         try {
