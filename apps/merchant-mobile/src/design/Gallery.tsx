@@ -6,6 +6,7 @@ import { MerchantContext, type Merchant } from '../context/MerchantContext';
 import { businessTypeFor } from '../business/businessTypes';
 import { MainTabs } from '../navigation/MainTabs';
 import { PromotionsScreen } from '../screens/PromotionsScreen';
+import { MoodProvider } from '../ui/mood';
 
 // Design review only: /design-preview?type=food. The real tabs and screens, with
 // the sample rows from sampleFetch. Nothing here ships to a phone.
@@ -33,12 +34,14 @@ export function MerchantGallery() {
     return (
         <AuthContext.Provider value={auth}>
             <MerchantContext.Provider value={value}>
+                <MoodProvider force={params.get('mood') === 'day' ? 'day' : 'night'}>
                 <NavigationContainer>
                     <Stack.Navigator screenOptions={{ headerShown: false }}>
                         <Stack.Screen name="Main" component={MainTabs} />
                         <Stack.Screen name="Promotions" component={PromotionsScreen as any} />
                     </Stack.Navigator>
                 </NavigationContainer>
+                </MoodProvider>
             </MerchantContext.Provider>
         </AuthContext.Provider>
     );

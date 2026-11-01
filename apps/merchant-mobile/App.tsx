@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
+import { Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -13,6 +14,7 @@ import { RegisterScreen } from './src/screens/RegisterScreen';
 import { JoinWithCodeScreen } from './src/screens/JoinWithCodeScreen';
 import { MainTabs } from './src/navigation/MainTabs';
 import { MerchantProvider } from './src/context/MerchantContext';
+import { MoodProvider } from './src/ui/mood';
 import { OrdersScreen } from './src/screens/OrdersScreen';
 import { DispatchScreen } from './src/screens/DispatchScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
@@ -72,13 +74,16 @@ function RootNavigator() {
       </View>
     );
   }
-  return user ? <MerchantProvider><AppNavigator /></MerchantProvider> : <AuthNavigator />;
+  return user ? <MerchantProvider><MoodProvider><AppNavigator /></MoodProvider></MerchantProvider> : <AuthNavigator />;
 }
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
     CormorantGaramond_500Medium,
     CormorantGaramond_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
   });
   const [fontTimedOut, setFontTimedOut] = useState(false);
 

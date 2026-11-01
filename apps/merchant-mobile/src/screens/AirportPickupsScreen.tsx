@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { initializeSupabaseClient } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { Chip, CrystalAction, Empty, Field, PageHeader } from '../ui/kit';
+import { Chip, GoldKey, Empty, Field, PageHeader } from '../ui/kit';
+import { Mood, type as T, useMood, useStyles } from '../ui/mood';
 
 const { supabase } = initializeSupabaseClient('native');
-const V = VOICES.merchant;
 
 // A hotel books its guest's airport pickup by flight number. With live flight
 // tracking the pickup follows the arrival; without it the hotel types the time.
@@ -27,6 +26,8 @@ export function pickupLabel(p: Pickup): string {
 }
 
 export function AirportPickupsScreen({ navigation }: { navigation: { goBack: () => void } }) {
+    const m = useMood();
+    const s = useStyles(makeStyles);
     const [form, setForm] = useState(emptyForm);
     const [tracked, setTracked] = useState<boolean | null>(null);
     const [pickups, setPickups] = useState<Pickup[]>([]);
@@ -87,16 +88,16 @@ export function AirportPickupsScreen({ navigation }: { navigation: { goBack: () 
                     <Chip label="Piarco" on={form.airport === 'POS'} onPress={() => set('airport', 'POS')} />
                     <Chip label="Tobago" on={form.airport === 'TAB'} onPress={() => set('airport', 'TAB')} />
                 </View>
-                <CrystalAction label="Check flight" color={V.accentDark} busy={checking} disabled={!form.flight_number} onPress={check} />
+                <GoldKey label="Check flight" busy={checking} disabled={!form.flight_number} onPress={check} />
                 {tracked === false && <View style={{ marginTop: 12 }}><Field label="Landing time (HH:MM, Trinidad time)" value={form.arrival_time} onChangeText={(v) => set('arrival_time', v)} placeholder="14:30" /></View>}
                 <View style={s.toggle}><Text style={s.toggleText}>Child seat</Text><Switch value={form.child_seat} onValueChange={(v) => set('child_seat', v)} accessibilityLabel="Child seat" /></View>
                 <View style={s.toggle}><Text style={s.toggleText}>Wheelchair</Text><Switch value={form.wheelchair} onValueChange={(v) => set('wheelchair', v)} accessibilityLabel="Wheelchair" /></View>
                 <Field label="Note for the driver (optional)" value={form.note} onChangeText={(v) => set('note', v)} maxLength={200} />
-                <CrystalAction label="Book pickup" busy={booking} disabled={!ready} onPress={book} />
+                <GoldKey label="Book pickup" busy={booking} disabled={!ready} onPress={book} />
                 {notice ? <Text style={s.notice}>{notice}</Text> : null}
 
                 <Text style={s.section}>Your pickups</Text>
-                {loading ? <ActivityIndicator color={V.accent} /> : pickups.length === 0 ? <Empty icon="airplane-outline" title="No pickups yet" /> : pickups.map((p) => (
+                {loading ? <ActivityIndicator color={m.gold} /> : pickups.length === 0 ? <Empty icon="airplane-outline" title="No pickups yet" /> : pickups.map((p) => (
                     <View key={p.id} style={s.card}>
                         <Text style={s.cardTitle}>{p.metadata?.guest_name ?? 'Guest'}</Text>
                         <Text style={s.cardSub}>{pickupLabel(p)}</Text>
@@ -108,15 +109,15 @@ export function AirportPickupsScreen({ navigation }: { navigation: { goBack: () 
     );
 }
 
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
+const makeStyles = (m: Mood) => StyleSheet.create({
+    root: { flex: 1, backgroundColor: m.page },
     body: { paddingHorizontal: 18, paddingBottom: 32 },
     chips: { flexDirection: 'row', gap: 8, marginBottom: 12 },
     toggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-    toggleText: { fontSize: 15, color: V.text },
-    notice: { marginTop: 12, fontSize: 14, lineHeight: 20, color: V.text },
-    section: { marginTop: 24, marginBottom: 8, fontSize: 17, fontWeight: '700', color: V.text },
-    card: { padding: 14, marginBottom: 10, borderRadius: 18, backgroundColor: V.surface },
-    cardTitle: { fontSize: 15, fontWeight: '700', color: V.text },
-    cardSub: { marginTop: 2, fontSize: 13, color: V.textMuted },
+    toggleText: { fontSize: 15, color: m.ink },
+    notice: { marginTop: 12, fontSize: 14, lineHeight: 20, color: m.ink },
+    section: { marginTop: 24, marginBottom: 8, fontSize: 17, fontWeight: '700', color: m.ink },
+    card: { padding: 14, marginBottom: 10, borderRadius: 18, backgroundColor: m.card, borderWidth: 2, borderColor: m.line },
+    cardTitle: { fontSize: 15, fontWeight: '700', color: m.ink },
+    cardSub: { marginTop: 2, fontSize: 13, color: m.dim },
 });

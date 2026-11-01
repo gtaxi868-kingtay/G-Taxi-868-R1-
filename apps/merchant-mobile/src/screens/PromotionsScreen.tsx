@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { initializeSupabaseClient } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { Chip, CrystalAction, Empty, Field, PageHeader } from '../ui/kit';
+import { Chip, GoldKey, Empty, Field, PageHeader } from '../ui/kit';
+import { Mood, type as T, useMood, useStyles } from '../ui/mood';
 
 const { supabase } = initializeSupabaseClient('native');
-const V = VOICES.merchant;
 
 type PromoType = 'map_pin' | 'suggested_stop' | 'search_boost' | 'home_featured';
 type Promotion = { id: string; promotion_type: PromoType; budget_cents: number; spent_cents: number; start_date: string; end_date: string; is_active: boolean };
@@ -21,6 +20,8 @@ const money = (c: number) => `TT$${(c / 100).toFixed(2)}`;
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
 export function PromotionsScreen({ navigation }: { navigation: { goBack: () => void } }) {
+    const m = useMood();
+    const s = useStyles(makeStyles);
     const [rows, setRows] = useState<Promotion[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -72,7 +73,7 @@ export function PromotionsScreen({ navigation }: { navigation: { goBack: () => v
     return (
         <View style={s.root}>
             <PageHeader title="Promotions" sub="G 868 reviews each one before it goes live." onBack={navigation.goBack} />
-            <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={V.accent} />}>
+            <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={m.gold} />}>
                 {adding ? (
                     <View style={s.card}>
                         <Text style={s.cardTitle}>What do you want?</Text>
@@ -80,19 +81,19 @@ export function PromotionsScreen({ navigation }: { navigation: { goBack: () => v
                         <Text style={s.hint}>{TYPES.find((t) => t.key === type)?.sub}</Text>
                         <Field label="Budget (TT$)" value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="500" />
                         <Field label="Run for (days)" value={days} onChangeText={setDays} keyboardType="number-pad" />
-                        <CrystalAction label="Send for review" busy={saving} onPress={create} />
+                        <GoldKey label="Send for review" busy={saving} onPress={create} />
                         <TouchableOpacity style={s.cancel} onPress={() => setAdding(false)} accessibilityRole="button"><Text style={s.cancelText}>Cancel</Text></TouchableOpacity>
                     </View>
                 ) : (
-                    <CrystalAction label="New promotion" onPress={() => setAdding(true)} />
+                    <GoldKey label="New promotion" onPress={() => setAdding(true)} />
                 )}
-                {loading ? <ActivityIndicator color={V.accent} style={{ marginTop: 30 }} /> : null}
+                {loading ? <ActivityIndicator color={m.gold} style={{ marginTop: 30 }} /> : null}
                 {!loading && rows.length === 0 && !adding && <Empty icon="megaphone-outline" title="No promotions yet" body="Promote your business to riders near you." />}
                 {rows.map((p) => (
                     <View key={p.id} style={s.card}>
                         <View style={s.row}>
                             <Text style={s.cardTitle}>{TYPES.find((t) => t.key === p.promotion_type)?.label ?? p.promotion_type}</Text>
-                            <Text style={[s.status, p.is_active && { color: V.accent }]}>{p.is_active ? 'Running' : 'Not running'}</Text>
+                            <Text style={[s.status, p.is_active && { color: m.gold }]}>{p.is_active ? 'Running' : 'Not running'}</Text>
                         </View>
                         <Text style={s.hint}>{money(p.spent_cents)} of {money(p.budget_cents)} used · until {p.end_date}</Text>
                         {p.is_active && <TouchableOpacity style={s.cancel} onPress={() => pause(p.id)} accessibilityRole="button"><Text style={s.cancelText}>Pause</Text></TouchableOpacity>}
@@ -103,15 +104,15 @@ export function PromotionsScreen({ navigation }: { navigation: { goBack: () => v
     );
 }
 
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
+const makeStyles = (m: Mood) => StyleSheet.create({
+    root: { flex: 1, backgroundColor: m.page },
     body: { paddingHorizontal: 18, paddingBottom: 32, gap: 12 },
-    card: { padding: 16, borderRadius: 20, backgroundColor: V.surface, borderWidth: 1, borderColor: 'rgba(233,245,243,0.08)' },
+    card: { padding: 16, borderRadius: 20, backgroundColor: m.card, borderWidth: 2, borderColor: m.line },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    cardTitle: { fontSize: 16, fontWeight: '700', color: V.text },
-    status: { fontSize: 13, fontWeight: '600', color: V.textMuted },
+    cardTitle: { fontSize: 16, fontWeight: '700', color: m.ink },
+    status: { fontSize: 13, fontWeight: '600', color: m.dim },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-    hint: { marginTop: 8, marginBottom: 12, fontSize: 13, lineHeight: 18, color: V.textMuted },
+    hint: { marginTop: 8, marginBottom: 12, fontSize: 13, lineHeight: 18, color: m.dim },
     cancel: { alignItems: 'center', paddingTop: 12 },
-    cancelText: { fontSize: 14, fontWeight: '600', color: V.textMuted },
+    cancelText: { fontSize: 14, fontWeight: '600', color: m.dim },
 });

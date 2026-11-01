@@ -2,21 +2,21 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CrystalFace, RaisedIcon } from '@gtaxi/design-system-native/src/crystal';
+import { LinearGradient } from 'expo-linear-gradient';
 import { initializeSupabaseClient } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { useAuth } from '../context/AuthContext';
 import { useMerchant } from '../context/MerchantContext';
 import { BusinessTypePicker } from '../components/BusinessTypePicker';
-import { CRYSTAL } from '../ui/kit';
+import { Mood, SERIF, type as T, useMood, useStyles } from '../ui/mood';
 
 const { supabase } = initializeSupabaseClient('native');
-const V = VOICES.merchant;
 type IconName = keyof typeof Ionicons.glyphMap;
 
 // Everything that is not part of the daily work lives here.
 export function YouScreen({ navigation }: { navigation: { navigate: (route: string) => void } }) {
     const insets = useSafeAreaInsets();
+    const m = useMood();
+    const s = useStyles(makeStyles);
     const { signOut } = useAuth();
     const { merchant, type, isOwner } = useMerchant();
     const [changingType, setChangingType] = useState(false);
@@ -62,15 +62,14 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
 
             {rows.map((r) => (
                 <TouchableOpacity key={r.route} style={s.row} onPress={() => navigation.navigate(r.route)} accessibilityRole="button" accessibilityLabel={r.label}>
-                    <View style={s.icon}>
-                        <CrystalFace color={CRYSTAL} radius={14} />
-                        <RaisedIcon name={r.icon} size={20} />
-                    </View>
+                    <LinearGradient colors={m.goldFace as [string, string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.icon}>
+                        <Ionicons name={r.icon} size={21} color={m.onGold} />
+                    </LinearGradient>
                     <View style={{ flex: 1 }}>
                         <Text style={s.label}>{r.label}</Text>
                         <Text style={s.desc}>{r.sub}</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={V.textMuted} />
+                    <Ionicons name="chevron-forward" size={18} color={m.dim} />
                 </TouchableOpacity>
             ))}
 
@@ -80,12 +79,12 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
                 </View>
             ) : (
                 <TouchableOpacity style={s.row} onPress={() => setChangingType(true)} accessibilityRole="button">
-                    <View style={s.plainIcon}><Ionicons name="options-outline" size={20} color={V.accent} /></View>
+                    <View style={s.plainIcon}><Ionicons name="options-outline" size={20} color={m.gold} /></View>
                     <View style={{ flex: 1 }}>
                         <Text style={s.label}>Business type</Text>
                         <Text style={s.desc}>{type?.label ?? 'Not chosen yet'}</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={V.textMuted} />
+                    <Ionicons name="chevron-forward" size={18} color={m.dim} />
                 </TouchableOpacity>
             ))}
 
@@ -99,16 +98,16 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
     );
 }
 
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    title: { fontFamily: V.serifSemi, fontSize: 32, color: V.text },
-    sub: { marginTop: 2, marginBottom: 16, fontSize: 14, color: V.textMuted },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, marginBottom: 10, borderRadius: 20, backgroundColor: V.surface, borderWidth: 1, borderColor: 'rgba(233,245,243,0.08)' },
-    icon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    plainIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(45,212,191,0.12)' },
-    label: { fontSize: 15, fontWeight: '700', color: V.text },
-    desc: { marginTop: 2, fontSize: 13, color: V.textMuted },
+const makeStyles = (m: Mood) => StyleSheet.create({
+    root: { flex: 1, backgroundColor: m.page },
+    title: { fontFamily: SERIF, fontSize: 36, lineHeight: 41, color: m.ink },
+    sub: { ...T.body, marginBottom: 16, color: m.dim },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, marginBottom: 10, borderRadius: 22, backgroundColor: m.card, borderWidth: 2, borderColor: m.line, borderBottomWidth: 5, borderBottomColor: m.raised },
+    icon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 3, borderBottomColor: m.goldLip },
+    plainIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: m.goldWash },
+    label: { ...T.strong, color: m.ink },
+    desc: { ...T.small, color: m.dim },
     quiet: { marginTop: 14, alignItems: 'center', padding: 8 },
-    quietText: { fontSize: 15, fontWeight: '600', color: V.text },
-    deleteText: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
+    quietText: { ...T.strong, color: m.ink },
+    deleteText: { ...T.small, color: m.danger },
 });

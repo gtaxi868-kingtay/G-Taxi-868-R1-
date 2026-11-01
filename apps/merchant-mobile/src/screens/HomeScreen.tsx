@@ -3,15 +3,13 @@ import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, StyleSheet
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CrystalFace, RaisedIcon } from '@gtaxi/design-system-native/src/crystal';
 import { initializeSupabaseClient } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { useMerchant } from '../context/MerchantContext';
 import { BusinessTypePicker } from '../components/BusinessTypePicker';
-import { CRYSTAL } from '../ui/kit';
+import { Card, GoldKey } from '../ui/kit';
+import { Mood, SERIF, type as T, useMood, useStyles } from '../ui/mood';
 
 const { supabase } = initializeSupabaseClient('native');
-const V = VOICES.merchant;
 
 type ShelfItem = { id: string; name: string; price_cents: number; image_url: string | null; is_available: boolean };
 type Today = { waiting: number; salesCents: number; earningsCents: number; items: number | null; ordersWeek: number; busiestHour: number | null };
@@ -23,6 +21,8 @@ const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? 'am' :
 // switch that opens it, and only what needs doing today.
 export function HomeScreen({ navigation }: { navigation: { navigate: (route: string) => void } }) {
     const insets = useSafeAreaInsets();
+    const m = useMood();
+    const s = useStyles(makeStyles);
     const { merchant, type, isOwner, loading, failed, reload, setOpen } = useMerchant();
     const [today, setToday] = useState<Today | null>(null);
     const [shelf, setShelf] = useState<ShelfItem[]>([]);
@@ -71,12 +71,12 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
     };
 
     if (loading) {
-        return <View style={s.center}><ActivityIndicator size="large" color={V.accent} /></View>;
+        return <View style={s.center}><ActivityIndicator size="large" color={m.gold} /></View>;
     }
     if (!merchant) {
         return (
             <View style={s.center}>
-                <Ionicons name="storefront-outline" size={44} color={V.textMuted} />
+                <Ionicons name="storefront-outline" size={44} color={m.dim} />
                 <Text style={s.emptyTitle}>{failed ? 'Could not load your business' : 'No business on this account yet'}</Text>
                 <TouchableOpacity style={s.retry} onPress={refresh} accessibilityRole="button">
                     <Text style={s.retryText}>Try again</Text>
@@ -90,59 +90,64 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
     const heroIcon = type?.icon ?? 'storefront-outline';
 
     return (
-        <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 28 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={V.accent} />}>
-            <View style={[s.hero, { paddingTop: insets.top + 18 }]}>
+        <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 28 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={m.gold} />}>
+            <View style={[s.hero, { paddingTop: insets.top + 22 }]}>
                 {merchant.cover_image_url ? (
-                    <Image source={{ uri: merchant.cover_image_url }} style={StyleSheet.absoluteFillObject} accessibilityIgnoresInvertColors />
+                    <>
+                        <Image source={{ uri: merchant.cover_image_url }} style={StyleSheet.absoluteFillObject} accessibilityIgnoresInvertColors />
+                        <LinearGradient colors={['rgba(16,14,10,0.05)', 'rgba(16,14,10,0.82)']} style={StyleSheet.absoluteFillObject} />
+                    </>
                 ) : (
-                    <View style={StyleSheet.absoluteFillObject}><CrystalFace color={V.accentDark} radius={0} /></View>
+                    <>
+                        <LinearGradient colors={m.pearl as [string, string, string]} style={StyleSheet.absoluteFillObject} />
+                        <LinearGradient colors={m.sheen as [string, string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.8 }} style={StyleSheet.absoluteFillObject} />
+                    </>
                 )}
-                <LinearGradient colors={['rgba(7,12,11,0.1)', 'rgba(7,12,11,0.92)']} style={StyleSheet.absoluteFillObject} />
-                <View style={s.badge}><RaisedIcon name={heroIcon} size={24} /></View>
-                <Text style={s.name} numberOfLines={2}>{merchant.name}</Text>
-                <Text style={s.sub} numberOfLines={1}>{[type?.label, merchant.address].filter(Boolean).join(' · ') || 'Your storefront'}</Text>
+                <LinearGradient colors={m.goldFace as [string, string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.badge}>
+                    <Ionicons name={heroIcon} size={26} color={m.onGold} />
+                </LinearGradient>
+                <Text style={[s.name, { color: merchant.cover_image_url ? '#FFF8E8' : m.onPearl }]} numberOfLines={2}>{merchant.name}</Text>
+                <Text style={[T.body, { color: merchant.cover_image_url ? 'rgba(255,248,232,0.85)' : m.onPearlDim }]} numberOfLines={1}>{[type?.label, merchant.address].filter(Boolean).join(' · ') || 'Your storefront'}</Text>
             </View>
 
             <View style={s.body}>
                 {!live && (
                     <View style={s.notice}>
-                        <Ionicons name="time-outline" size={18} color={V.copperBright} />
+                        <Ionicons name="time-outline" size={18} color={m.gold} />
                         <Text style={s.noticeText}>G 868 is reviewing your business. Customers will see it once you are approved.</Text>
                     </View>
                 )}
 
-                <View style={s.openRow}>
-                    <View style={[s.dot, { backgroundColor: open ? V.accent : V.textMuted }]} />
+                <Card style={s.openRow}>
+                    <View style={[s.dot, { backgroundColor: open ? m.gold : m.dim }]} />
                     <View style={{ flex: 1 }}>
                         <Text style={s.openTitle}>{open ? 'Open now' : 'Closed'}</Text>
                         <Text style={s.openSub}>{open ? 'Customers can reach you' : 'Customers see you as closed'}</Text>
                     </View>
-                    <Switch value={open} onValueChange={toggleOpen} trackColor={{ true: V.accentDark, false: 'rgba(233,245,243,0.18)' }} thumbColor={open ? V.accent : '#E9F5F3'} accessibilityLabel="Open or close your storefront" />
-                </View>
+                    <Switch value={open} onValueChange={toggleOpen} trackColor={{ true: m.goldLip, false: m.line }} thumbColor={open ? m.goldFace[1] : m.dim} accessibilityLabel="Open or close your storefront" />
+                </Card>
 
                 {!type ? (
                     isOwner ? <BusinessTypePicker /> : <Text style={s.openSub}>Ask the owner to choose your business type.</Text>
                 ) : (
                     <>
-                        <TouchableOpacity style={s.primary} onPress={() => navigation.navigate('Work')} accessibilityRole="button" accessibilityLabel={`Open ${type.work.label}`}>
-                            <CrystalFace color={CRYSTAL} radius={22} />
-                            <RaisedIcon name={type.work.icon} size={26} />
-                            <View style={{ flex: 1, marginLeft: 14 }}>
-                                <Text style={s.primaryTitle}>{today && today.waiting > 0 ? `${today.waiting} ${type.work.label.toLowerCase()}` : type.work.empty}</Text>
-                                <Text style={s.primarySub}>Open {type.work.label}</Text>
-                            </View>
-                            <RaisedIcon name="chevron-forward" size={20} />
-                        </TouchableOpacity>
+                        <GoldKey
+                            icon={type.work.icon}
+                            label={today && today.waiting > 0 ? `${today.waiting} ${type.work.label.toLowerCase()}` : type.work.empty}
+                            sub={`Open ${type.work.label}`}
+                            trailing="chevron-forward"
+                            onPress={() => navigation.navigate('Work')}
+                        />
 
                         <View style={s.stats}>
-                            <View style={s.stat}>
+                            <Card style={s.stat}>
                                 <Text style={s.statValue}>{money(today?.salesCents ?? 0)}</Text>
                                 <Text style={s.statLabel}>Sales today</Text>
-                            </View>
-                            <View style={s.stat}>
+                            </Card>
+                            <Card style={s.stat}>
                                 <Text style={s.statValue}>{money(today?.earningsCents ?? 0)}</Text>
                                 <Text style={s.statLabel}>Pending earnings</Text>
-                            </View>
+                            </Card>
                         </View>
 
                         {type.catalog && shelf.length > 0 && (
@@ -157,7 +162,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
                                     {shelf.map((p) => (
                                         <TouchableOpacity key={p.id} style={[s.shelfCard, !p.is_available && { opacity: 0.5 }]} onPress={() => navigation.navigate('Catalog')} accessibilityRole="button" accessibilityLabel={p.name}>
                                             {p.image_url ? <Image source={{ uri: p.image_url }} style={s.shelfPhoto} accessibilityIgnoresInvertColors /> : (
-                                                <View style={[s.shelfPhoto, s.shelfBlank]}><Ionicons name="image-outline" size={22} color={V.textMuted} /></View>
+                                                <View style={[s.shelfPhoto, s.shelfBlank]}><Ionicons name="image-outline" size={22} color={m.dim} /></View>
                                             )}
                                             <Text style={s.shelfName} numberOfLines={1}>{p.name}</Text>
                                             <Text style={s.shelfPrice}>{money(p.price_cents)}</Text>
@@ -169,7 +174,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
 
                         {type.catalog && today?.items === 0 && (
                             <TouchableOpacity style={s.task} onPress={() => navigation.navigate('Catalog')} accessibilityRole="button">
-                                <Ionicons name="add-circle-outline" size={22} color={V.copperBright} />
+                                <Ionicons name="add-circle-outline" size={22} color={m.gold} />
                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                     <Text style={s.taskTitle}>{type.catalog.addLabel}</Text>
                                     <Text style={s.taskSub}>Your {type.catalog.label.toLowerCase()} is empty, so customers have nothing to choose yet.</Text>
@@ -179,7 +184,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
 
                         {today && today.ordersWeek > 0 && (
                             <View style={s.insight}>
-                                <Ionicons name="sparkles" size={16} color={V.accent} />
+                                <Ionicons name="sparkles" size={16} color={m.gold} />
                                 <Text style={s.insightText}>
                                     {today.ordersWeek} order{today.ordersWeek === 1 ? '' : 's'} this week
                                     {today.busiestHour !== null ? `. Busiest around ${hourLabel(today.busiestHour)}.` : '.'}
@@ -193,42 +198,38 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
     );
 }
 
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    center: { flex: 1, backgroundColor: SURFACE.base, alignItems: 'center', justifyContent: 'center', padding: 32 },
-    emptyTitle: { marginTop: 14, fontSize: 17, fontWeight: '700', color: V.text, textAlign: 'center' },
-    retry: { marginTop: 16, paddingHorizontal: 22, paddingVertical: 12, borderRadius: 16, backgroundColor: 'rgba(45,212,191,0.14)' },
-    retryText: { color: V.accent, fontWeight: '700' },
-    hero: { minHeight: 240, paddingHorizontal: 22, paddingBottom: 22, justifyContent: 'flex-end', overflow: 'hidden' },
-    badge: { width: 48, height: 48, borderRadius: 16, marginBottom: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(7,12,11,0.45)', borderWidth: 1, borderColor: 'rgba(233,245,243,0.2)' },
-    name: { fontFamily: V.serifSemi, fontSize: 34, lineHeight: 39, color: '#FFFFFF' },
-    sub: { marginTop: 4, fontSize: 14, color: 'rgba(233,245,243,0.8)' },
+const makeStyles = (m: Mood) => StyleSheet.create({
+    root: { flex: 1, backgroundColor: m.page },
+    center: { flex: 1, backgroundColor: m.page, alignItems: 'center', justifyContent: 'center', padding: 32 },
+    emptyTitle: { ...T.heading, marginTop: 14, color: m.ink, textAlign: 'center' },
+    retry: { marginTop: 16, paddingHorizontal: 22, paddingVertical: 12, borderRadius: 16, backgroundColor: m.goldWash },
+    retryText: { ...T.strong, color: m.gold },
+    hero: { minHeight: 230, paddingHorizontal: 22, paddingBottom: 22, justifyContent: 'flex-end', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+    badge: { width: 52, height: 52, borderRadius: 18, marginBottom: 12, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: m.goldLip },
+    name: { fontFamily: SERIF, fontSize: 38, lineHeight: 43 },
     body: { paddingHorizontal: 18, paddingTop: 16, gap: 12 },
-    notice: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 18, backgroundColor: 'rgba(192,133,82,0.14)' },
-    noticeText: { flex: 1, fontSize: 13, lineHeight: 19, color: V.text },
-    openRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 20, backgroundColor: V.surface, borderWidth: 1, borderColor: 'rgba(233,245,243,0.08)' },
-    dot: { width: 10, height: 10, borderRadius: 5 },
-    openTitle: { fontSize: 16, fontWeight: '700', color: V.text },
-    openSub: { marginTop: 2, fontSize: 13, color: V.textMuted },
-    primary: { flexDirection: 'row', alignItems: 'center', minHeight: 84, padding: 18, borderRadius: 22, overflow: 'hidden' },
-    primaryTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-    primarySub: { marginTop: 2, fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+    notice: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 18, backgroundColor: m.goldWash },
+    noticeText: { ...T.body, flex: 1, color: m.ink },
+    openRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    dot: { width: 12, height: 12, borderRadius: 6 },
+    openTitle: { ...T.heading, color: m.ink },
+    openSub: { ...T.small, color: m.dim },
     stats: { flexDirection: 'row', gap: 12 },
-    stat: { flex: 1, padding: 16, borderRadius: 20, backgroundColor: V.surface, borderWidth: 1, borderColor: 'rgba(233,245,243,0.08)' },
-    statValue: { fontSize: 22, fontWeight: '800', color: V.text },
-    statLabel: { marginTop: 3, fontSize: 12, color: V.textMuted },
+    stat: { flex: 1 },
+    statValue: { fontFamily: 'Nunito_900Black', fontSize: 24, lineHeight: 30, color: m.ink },
+    statLabel: { ...T.small, color: m.dim },
     shelfHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4, marginBottom: 8 },
-    shelfTitle: { fontSize: 17, fontWeight: '700', color: V.text },
-    shelfAll: { fontSize: 14, fontWeight: '600', color: V.accent },
+    shelfTitle: { ...T.heading, color: m.ink },
+    shelfAll: { ...T.strong, color: m.gold },
     shelf: { gap: 10, paddingRight: 18 },
     shelfCard: { width: 128 },
-    shelfPhoto: { width: 128, height: 128, borderRadius: 16 },
-    shelfBlank: { alignItems: 'center', justifyContent: 'center', backgroundColor: V.surface },
-    shelfName: { marginTop: 6, fontSize: 13.5, fontWeight: '600', color: V.text },
-    shelfPrice: { marginTop: 1, fontSize: 13.5, fontWeight: '800', color: V.text },
-    task: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: 'rgba(192,133,82,0.12)' },
-    taskTitle: { fontSize: 15, fontWeight: '700', color: V.text },
-    taskSub: { marginTop: 2, fontSize: 13, lineHeight: 18, color: V.textMuted },
+    shelfPhoto: { width: 128, height: 128, borderRadius: 18 },
+    shelfBlank: { alignItems: 'center', justifyContent: 'center', backgroundColor: m.goldWash },
+    shelfName: { ...T.small, marginTop: 6, color: m.ink },
+    shelfPrice: { ...T.strong, color: m.ink },
+    task: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: m.goldWash },
+    taskTitle: { ...T.strong, color: m.ink },
+    taskSub: { ...T.small, marginTop: 2, color: m.dim },
     insight: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 6 },
-    insightText: { flex: 1, fontSize: 13, color: V.textMuted },
+    insightText: { ...T.small, flex: 1, color: m.dim },
 });

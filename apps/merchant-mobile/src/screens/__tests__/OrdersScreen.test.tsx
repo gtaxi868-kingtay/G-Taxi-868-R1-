@@ -16,6 +16,8 @@ const mockQuery = (rows: unknown[]) => {
 };
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
+jest.mock('expo-haptics', () => ({ selectionAsync: () => Promise.resolve() }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 jest.mock('@gtaxi/design-system', () => ({ SURFACE: { base: '#141122' }, VOICES: { merchant: { accent: '#2DD4BF', text: '#fff', textMuted: '#999', surface: '#222', serifSemi: 'serif' } } }));
 jest.mock('@gtaxi/design-system-native/src/crystal', () => ({ CrystalFace: () => null }));

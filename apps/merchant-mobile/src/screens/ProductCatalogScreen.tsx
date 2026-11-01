@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useMerchant } from '../context/MerchantContext';
+import { useMood } from '../ui/mood';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
@@ -69,6 +70,7 @@ const EMPTY_FORM: ProductForm = {
 export function ProductCatalogScreen() {
     const insets = useSafeAreaInsets();
     const { type } = useMerchant();
+    const m = useMood();
     const title = type?.catalog?.label ?? 'Products';
     const addLabel = type?.catalog?.addLabel ?? 'Add a product';
     const { user } = useAuth();
@@ -242,15 +244,15 @@ export function ProductCatalogScreen() {
 
     // ── Shelf card: how the item looks to a customer ──
     const renderProduct = ({ item }: { item: Product }) => (
-        <View style={[s.shelfCard, !item.is_available && s.shelfOff]}>
+        <View style={[s.shelfCard, { backgroundColor: m.card, borderColor: m.line, borderBottomColor: m.raised }, !item.is_available && s.shelfOff]}>
             <TouchableOpacity onPress={() => openEdit(item)} accessibilityRole="button" accessibilityLabel={`Edit ${item.name}`}>
                 {item.image_url ? (
                     <Image source={{ uri: item.image_url }} style={s.shelfPhoto} accessibilityIgnoresInvertColors />
                 ) : (
                     <View style={[s.shelfPhoto, s.shelfBlank]}><Ionicons name="image-outline" size={26} color="rgba(233,245,243,0.3)" /></View>
                 )}
-                <Text style={s.shelfName} numberOfLines={2}>{item.name}</Text>
-                <Text style={s.shelfPrice}>TT${(item.price_cents / 100).toFixed(2)}</Text>
+                <Text style={[s.shelfName, { color: m.ink }]} numberOfLines={2}>{item.name}</Text>
+                <Text style={[s.shelfPrice, { color: m.ink }]}>TT${(item.price_cents / 100).toFixed(2)}</Text>
             </TouchableOpacity>
             <View style={s.shelfFoot}>
                 {togglingId === item.id ? (
@@ -259,8 +261,8 @@ export function ProductCatalogScreen() {
                     <Switch
                         value={item.is_available}
                         onValueChange={() => toggleAvailability(item)}
-                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: ACCENT + '66' }}
-                        thumbColor={item.is_available ? ACCENT : 'rgba(255,255,255,0.3)'}
+                        trackColor={{ false: m.line, true: m.goldLip }}
+                        thumbColor={item.is_available ? m.goldFace[1] : m.dim}
                         accessibilityLabel={`${item.name} available`}
                     />
                 )}
@@ -290,7 +292,7 @@ export function ProductCatalogScreen() {
     if (loading) {
         return (
             <View style={[s.container, { paddingTop: insets.top }]}>
-                <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: m.page }]} />
                 <View style={s.loadingWrap}>
                     <ActivityIndicator size="large" color={ACCENT} />
                     <Text style={s.loadingText}>Loading catalog</Text>
@@ -301,19 +303,19 @@ export function ProductCatalogScreen() {
 
     return (
         <View style={[s.container, { paddingTop: insets.top }]}>
-            <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: m.page }]} />
 
             {/* Header */}
             <View style={s.header}>
                 <View>
-                    <Text style={s.screenTitle}>{title}</Text>
-                    <Text style={s.productCount}>
+                    <Text style={[s.screenTitle, { color: m.ink }]}>{title}</Text>
+                    <Text style={[s.productCount, { color: m.dim }]}>
                         {products.length} {products.length === 1 ? 'item' : 'items'} ·{' '}
                         {products.filter(p => p.is_available).length} available
                     </Text>
                 </View>
                 <TouchableOpacity style={[s.addBtn, { backgroundColor: ACCENT }]} onPress={openAdd} activeOpacity={0.8} accessibilityLabel="Add new product" accessibilityRole="button">
-                    <Ionicons name="add" size={22} color="#000" />
+                    <Ionicons name="add" size={24} color={m.onGold} />
                 </TouchableOpacity>
             </View>
 
@@ -345,7 +347,7 @@ export function ProductCatalogScreen() {
                     style={s.modalOuter}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
-                    <LinearGradient colors={['#0F0C1A', SURFACE.base]} style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: m.page }]} />
 
                     {/* Modal header */}
                     <View style={s.modalHeader}>
@@ -507,7 +509,7 @@ export function ProductCatalogScreen() {
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: SURFACE.base },
+    container: { flex: 1, backgroundColor: VOICES.merchant.bg },
 
     // Header
     header: {
@@ -517,8 +519,8 @@ const s = StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 16,
     },
-    screenTitle: { fontFamily: VOICES.merchant.serifSemi, fontSize: 32, lineHeight: 38, color: VOICES.merchant.text },
-    productCount: { fontSize: 13.5, color: VOICES.merchant.textMuted, marginTop: 1 },
+    screenTitle: { fontFamily: 'Nunito_900Black', fontSize: 30, lineHeight: 36 },
+    productCount: { fontFamily: 'Nunito_700Bold', fontSize: 14 },
     addBtn: {
         width: 44,
         height: 44,
@@ -533,12 +535,12 @@ const s = StyleSheet.create({
 
     // Product row
     shelfRow: { gap: 12 },
-    shelfCard: { flex: 1, maxWidth: '50%', marginBottom: 12, padding: 10, borderRadius: 18, backgroundColor: VOICES.merchant.surface, borderWidth: 1, borderColor: 'rgba(233,245,243,0.08)' },
+    shelfCard: { flex: 1, maxWidth: '50%', marginBottom: 12, padding: 10, borderRadius: 22, borderWidth: 2, borderBottomWidth: 5 },
     shelfOff: { opacity: 0.55 },
     shelfPhoto: { width: '100%', aspectRatio: 1, borderRadius: 12 },
-    shelfBlank: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(233,245,243,0.05)' },
-    shelfName: { marginTop: 8, minHeight: 38, fontSize: 14, fontWeight: '700', lineHeight: 19, color: VOICES.merchant.text },
-    shelfPrice: { marginTop: 2, fontSize: 15, fontWeight: '800', color: VOICES.merchant.text },
+    shelfBlank: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,204,96,0.10)' },
+    shelfName: { marginTop: 8, minHeight: 38, fontFamily: 'Nunito_800ExtraBold', fontSize: 14, lineHeight: 19 },
+    shelfPrice: { marginTop: 2, fontFamily: 'Nunito_900Black', fontSize: 15.5 },
     shelfFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
     productRow: {
         borderRadius: 16,
@@ -551,7 +553,7 @@ const s = StyleSheet.create({
     },
     productInfo: { flex: 1, minWidth: 0 },
     productHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' },
-    productName: { fontSize: 15, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', flex: 1 },
+    productName: { fontSize: 15, fontWeight: '700', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk', flex: 1 },
     categoryBadge: {
         paddingHorizontal: 8,
         paddingVertical: 2,
@@ -585,7 +587,7 @@ const s = StyleSheet.create({
 
     // Empty
     emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingTop: 80 },
-    emptyTitle: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', marginTop: 16, fontFamily: 'SpaceGrotesk' },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: VOICES.merchant.text, marginTop: 16, fontFamily: 'SpaceGrotesk' },
     emptyDesc: {
         fontSize: 14,
         color: VOICES.merchant.textMuted,
@@ -630,7 +632,7 @@ const s = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#E9F5F3',
+        color: VOICES.merchant.text,
         fontFamily: 'SpaceGrotesk',
     },
     modalClose: {
@@ -661,7 +663,7 @@ const s = StyleSheet.create({
         borderRadius: 14,
         paddingHorizontal: 16,
         paddingVertical: 14,
-        color: '#E9F5F3',
+        color: VOICES.merchant.text,
         fontSize: 15,
         fontFamily: 'Manrope',
     },

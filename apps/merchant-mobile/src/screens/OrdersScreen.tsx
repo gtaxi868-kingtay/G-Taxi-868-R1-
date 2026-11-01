@@ -2,21 +2,19 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeSupabaseClient } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { useMerchant } from '../context/MerchantContext';
-import { CrystalAction, Empty, PageHeader } from '../ui/kit';
+import { Card, Empty, GoldKey, PageHeader } from '../ui/kit';
+import { Mood, type as T, useMood, useStyles } from '../ui/mood';
 
 const { supabase } = initializeSupabaseClient('native');
-const V = VOICES.merchant;
-const ERROR = '#FF4D4D';
 
 type Item = { order_id: string; quantity: number; products: { name: string } | null };
 type Order = { id: string; status: string; created_at: string; total_cents: number | null; delivery_method: string | null; payment_status: string | null };
 
-const NEXT: Record<string, { label: string; next: string; color?: string }> = {
+const NEXT: Record<string, { label: string; next: string }> = {
     pending: { label: 'Accept order', next: 'confirmed' },
     confirmed: { label: 'Start preparing', next: 'preparing' },
-    preparing: { label: 'Ready for pickup', next: 'ready_for_pickup', color: '#10B981' },
+    preparing: { label: 'Ready for pickup', next: 'ready_for_pickup' },
 };
 
 // The order board: what just came in, what is on the counter, what is waiting
@@ -35,6 +33,8 @@ const how = (o: Order) => (o.delivery_method === 'pickup' ? 'Pickup' : o.deliver
 const paid = (o: Order) => (o.payment_status === 'cash_on_delivery' ? 'Cash on delivery' : o.payment_status === 'captured' ? 'Paid' : null);
 
 export function OrdersScreen(_props: { navigation?: unknown }) {
+    const m = useMood();
+    const s = useStyles(makeStyles);
     const { merchant } = useMerchant();
     const [orders, setOrders] = useState<Order[]>([]);
     const [items, setItems] = useState<Record<string, Item[]>>({});
@@ -113,9 +113,9 @@ export function OrdersScreen(_props: { navigation?: unknown }) {
         <View style={s.root}>
             <PageHeader title="Orders" sub={waiting ? `${waiting} new, waiting on you` : 'Your order board'} />
             {loading ? (
-                <ActivityIndicator size="large" color={V.accent} style={{ marginTop: 40 }} />
+                <ActivityIndicator size="large" color={m.gold} style={{ marginTop: 40 }} />
             ) : (
-                <ScrollView contentContainerStyle={s.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={V.accent} />}>
+                <ScrollView contentContainerStyle={s.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={m.gold} />}>
                     {sections.length === 0 && <Empty icon="receipt-outline" title="No orders yet" body="New orders appear here the moment they come in." />}
                     {sections.map((sec) => (
                         <View key={sec.title}>
@@ -124,7 +124,7 @@ export function OrdersScreen(_props: { navigation?: unknown }) {
                                 const step = NEXT[o.status];
                                 const lines = items[o.id] ?? [];
                                 return (
-                                    <View key={o.id} style={[s.card, o.status === 'pending' && s.cardNew]}>
+                                    <Card key={o.id} style={s.card} highlight={o.status === 'pending'}>
                                         <View style={s.top}>
                                             <Text style={s.when}>{isToday(o.created_at) ? time(o.created_at) : `${day(o.created_at)}, ${time(o.created_at)}`}</Text>
                                             <Text style={s.total}>TT${((o.total_cents ?? 0) / 100).toFixed(2)}</Text>
@@ -137,16 +137,16 @@ export function OrdersScreen(_props: { navigation?: unknown }) {
                                         {step && (
                                             <View style={s.actions}>
                                                 <View style={{ flex: 1 }}>
-                                                    <CrystalAction label={step.label} color={step.color} busy={acting === o.id} onPress={() => update(o.id, step.next)} />
+                                                    <GoldKey label={step.label} busy={acting === o.id} onPress={() => update(o.id, step.next)} />
                                                 </View>
                                                 {o.status === 'pending' && (
                                                     <TouchableOpacity style={s.reject} onPress={() => reject(o.id)} accessibilityRole="button" accessibilityLabel="Reject order">
-                                                        <Ionicons name="close" size={22} color={ERROR} />
+                                                        <Ionicons name="close" size={24} color={m.danger} />
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
                                         )}
-                                    </View>
+                                    </Card>
                                 );
                             })}
                         </View>
@@ -157,18 +157,17 @@ export function OrdersScreen(_props: { navigation?: unknown }) {
     );
 }
 
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
+const makeStyles = (m: Mood) => StyleSheet.create({
+    root: { flex: 1, backgroundColor: m.page },
     list: { paddingHorizontal: 18, paddingBottom: 28 },
-    section: { marginTop: 12, marginBottom: 8, fontSize: 14, fontWeight: '700', color: V.textMuted },
-    card: { padding: 16, marginBottom: 10, borderRadius: 20, backgroundColor: V.surface, borderWidth: 1, borderColor: 'rgba(233,245,243,0.08)' },
-    cardNew: { borderColor: V.accent },
+    section: { ...T.strong, marginTop: 12, marginBottom: 8, color: m.dim },
+    card: { marginBottom: 12 },
     top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-    when: { fontSize: 16, fontWeight: '700', color: V.text },
-    total: { fontSize: 20, fontWeight: '800', color: V.text },
-    meta: { marginTop: 2, marginBottom: 8, fontSize: 13, color: V.textMuted },
-    line: { fontSize: 15, lineHeight: 22, color: V.text },
-    cancelled: { marginTop: 4, fontSize: 13, fontWeight: '600', color: ERROR },
+    when: { ...T.heading, color: m.ink },
+    total: { fontFamily: 'Nunito_900Black', fontSize: 21, lineHeight: 27, color: m.ink },
+    meta: { ...T.small, marginBottom: 8, color: m.dim },
+    line: { ...T.body, fontSize: 15, lineHeight: 22, color: m.ink },
+    cancelled: { ...T.small, marginTop: 4, color: m.danger },
     actions: { flexDirection: 'row', gap: 10, marginTop: 12 },
-    reject: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,77,77,0.4)' },
+    reject: { width: 56, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: m.line, backgroundColor: m.card },
 });
