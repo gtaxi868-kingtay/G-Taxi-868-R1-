@@ -10,7 +10,8 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { JoinWithCodeScreen } from './src/screens/JoinWithCodeScreen';
-import { DashboardScreen } from './src/screens/DashboardScreen';
+import { MainTabs } from './src/navigation/MainTabs';
+import { MerchantProvider } from './src/context/MerchantContext';
 import { OrdersScreen } from './src/screens/OrdersScreen';
 import { DispatchScreen } from './src/screens/DispatchScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
@@ -40,7 +41,7 @@ function AuthNavigator() {
 function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
-      <AppStack.Screen name="Dashboard" component={DashboardScreen} />
+      <AppStack.Screen name="Main" component={MainTabs} />
       <AppStack.Screen name="Orders" component={OrdersScreen} />
       <AppStack.Screen name="Dispatch" component={DispatchScreen} />
       <AppStack.Screen name="Earnings" component={EarningsScreen} />
@@ -64,7 +65,7 @@ function RootNavigator() {
       </View>
     );
   }
-  return user ? <AppNavigator /> : <AuthNavigator />;
+  return user ? <MerchantProvider><AppNavigator /></MerchantProvider> : <AuthNavigator />;
 }
 
 export default function App() {

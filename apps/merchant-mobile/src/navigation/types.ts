@@ -6,8 +6,16 @@ export type AuthStackParamList = {
   JoinWithCode: undefined;
 };
 
+export type MainTabParamList = {
+  Home: undefined;
+  Work: undefined;
+  Catalog: undefined;
+  Money: undefined;
+  You: undefined;
+};
+
 export type AppStackParamList = {
-  Dashboard: undefined;
+  Main: undefined;
   Orders: undefined;
   Dispatch: undefined;
   Earnings: undefined;
