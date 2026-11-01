@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { MerchantFinancials } from './pages/MerchantFinancials';
 import { MerchantPromotions } from './pages/MerchantPromotions';
+import { MerchantBrand } from './pages/MerchantBrand';
 import { MerchantGSpot } from './pages/MerchantGSpot';
 import { MerchantRooms } from './pages/MerchantRooms';
 import { MerchantAirport } from './pages/MerchantAirport';
@@ -17,7 +18,7 @@ import { MerchantRegister } from './pages/MerchantRegister';
 import { MerchantJoinWithCode } from './pages/MerchantJoinWithCode';
 
 type MerchantMode = 'HOTEL' | 'RETAIL' | 'SERVICE' | 'AIRPORT';
-type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms' | 'airport' | 'payouts' | 'business';
+type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms' | 'airport' | 'payouts' | 'business' | 'brand';
 
 function App() {
   const [view, setView] = useState<'login' | 'register' | 'join' | 'app'>('login');
@@ -179,6 +180,7 @@ function App() {
               <MerchantNavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Audit" />
               <MerchantNavItem active={activeTab === 'payouts'} onClick={() => handleNav('payouts')} icon={<Banknote size={20}/>} label="Earnings & Payouts" />
               <MerchantNavItem active={activeTab === 'promotions'} onClick={() => handleNav('promotions')} icon={<Megaphone size={20}/>} label="Promotions" />
+              <MerchantNavItem active={activeTab === 'brand'} onClick={() => handleNav('brand')} icon={<Sparkles size={20}/>} label="Your brand" />
               <MerchantNavItem active={activeTab === 'gspot'} onClick={() => handleNav('gspot')} icon={<Wine size={20}/>} label="G Spot" />
               {mode === 'HOTEL' && (
                 <MerchantNavItem active={activeTab === 'rooms'} onClick={() => handleNav('rooms')} icon={<BedDouble size={20}/>} label="Rooms & Rates" />
@@ -292,6 +294,7 @@ function App() {
 
               {activeTab === 'financials' && <MerchantFinancials merchantId={merchant?.id} />}
               {activeTab === 'promotions' && <MerchantPromotions merchantId={merchant?.id} />}
+              {activeTab === 'brand' && <MerchantBrand merchantId={merchant?.id} />}
               {activeTab === 'gspot' && <MerchantGSpot />}
               {activeTab === 'rooms' && <MerchantRooms />}
               {activeTab === 'airport' && <MerchantAirport />}

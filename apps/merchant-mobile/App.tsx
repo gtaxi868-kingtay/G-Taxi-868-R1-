@@ -21,6 +21,7 @@ import { ProductCatalogScreen } from './src/screens/ProductCatalogScreen';
 import { AppointmentsScreen } from './src/screens/AppointmentsScreen';
 import { StaffScreen } from './src/screens/StaffScreen';
 import { NfcAcceptPaymentScreen } from './src/screens/NfcAcceptPaymentScreen';
+import { BrandScreen } from './src/screens/BrandScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -49,6 +50,7 @@ function AppNavigator() {
       <AppStack.Screen name="EquityProgress" component={EquityProgressScreen} />
       <AppStack.Screen name="Staff" component={StaffScreen} />
       <AppStack.Screen name="NfcAcceptPayment" component={NfcAcceptPaymentScreen} />
+      <AppStack.Screen name="Brand" component={BrandScreen} />
     </AppStack.Navigator>
   );
 }
