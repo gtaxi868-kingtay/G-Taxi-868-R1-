@@ -6,6 +6,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DRIVER_CONSENT_DOCUMENTS, LEGAL_DOC_URLS } from '@g868/shared/legal';
+import { TownField } from '../components/TownField';
+import type { Town } from '../data/towns';
 import { savePendingSignup } from '@g868/shared/pendingSignup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
@@ -36,6 +38,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
     // Vehicle Info
     const [vehicleModel, setVehicleModel] = useState('');
     const [licensePlate, setLicensePlate] = useState('');
+    const [homeTown, setHomeTown] = useState<Town | null>(null);
     // Optional: the G-Partner shop that signed this driver up. The shop then
     // earns 2% of this driver's fares (from the driver's 80%) while active.
     const [shopCode, setShopCode] = useState('');
@@ -124,6 +127,10 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
     const handleRegister = async () => {
         if (!vehicleModel || !licensePlate) {
             Alert.alert('Missing Info', 'Please fill in vehicle details');
+            return;
+        }
+        if (!homeTown) {
+            Alert.alert('Home Town', 'Pick your home town from the list so we can tell you about riders near you.');
             return;
         }
         if (!licenseFront || !licenseBack || !vehiclePhoto) {
@@ -264,6 +271,9 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                 vehicle_model: vehicleModel.trim(),
                 plate_number: licensePlate.trim().toUpperCase(),
                 vehicle_type: claimedVehicleType,
+                home_town: homeTown.name,
+                home_lat: homeTown.lat,
+                home_lng: homeTown.lng,
                 status: 'offline',
                 is_online: false,
                 verified_status: 'pending'
@@ -327,7 +337,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
         <View style={s.root}>
             <StatusBar style="light" />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
                     {/* Header: [← back] | ["Become a Driver" centered] | step indicator (1 of 2) */}
                     <View style={s.headerRow}>
@@ -388,6 +398,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                     ) : (
                         <View style={s.container}>
                             <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#EAF3F6'}]}>Vehicle Info</Text>
+                            <TownField value={homeTown} onChange={setHomeTown} />
                             {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}
                             {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
                             {renderInput('Shop code (optional, if a shop signed you up)', shopCode, setShopCode, { autoCapitalize: 'characters' })}

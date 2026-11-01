@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { commander_code, name, phone_number, vehicle_model, plate_number, vehicle_type, driver_referral_code } = await req.json()
+    const { commander_code, name, phone_number, vehicle_model, plate_number, vehicle_type, driver_referral_code, home_town, home_lat, home_lng } = await req.json()
 
     if (!commander_code || !name) {
       return new Response(
@@ -122,6 +122,9 @@ Deno.serve(async (req) => {
         phone_number: phone_number || null,
         vehicle_model: vehicle_model || null,
         plate_number: plate_number || null,
+        home_town: typeof home_town === 'string' ? home_town.slice(0, 80) : null,
+        home_lat: typeof home_lat === 'number' ? home_lat : null,
+        home_lng: typeof home_lng === 'number' ? home_lng : null,
         vehicle_type: vehicle_type || 'standard',
         status: 'offline',
         verified_status: 'pending',
