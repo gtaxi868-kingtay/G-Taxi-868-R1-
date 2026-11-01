@@ -8,6 +8,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
+import { TownField } from '../components/TownField';
+import type { Town } from '../data/towns';
 import { isAlreadyRegistered, friendlySignupError } from '../utils/driverSignup';
 import { VOICES } from '@gtaxi/design-system';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
@@ -34,6 +36,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
     const [licensePlate, setLicensePlate] = useState('');
     const [vehicleType, setVehicleType] = useState('Standard');
     const [driverReferralCode, setDriverReferralCode] = useState('');
+    const [homeTown, setHomeTown] = useState<Town | null>(null);
 
     const goBack = () => { onBack?.(); navigation?.goBack(); };
 
@@ -44,6 +47,10 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
         }
         if (password.length < 6) {
             Alert.alert('Weak Password', 'Password must be 6+ characters.');
+            return;
+        }
+        if (!homeTown) {
+            Alert.alert('Home Town', 'Pick your home town from the list so we can tell you about riders near you.');
             return;
         }
 
@@ -91,6 +98,9 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                     plate_number: licensePlate.trim().toUpperCase() || null,
                     vehicle_type: vehicleType.toLowerCase(),
                     driver_referral_code: driverReferralCode.trim().toUpperCase() || null,
+                    home_town: homeTown.name,
+                    home_lat: homeTown.lat,
+                    home_lng: homeTown.lng,
                 },
             });
             if (error || !data?.success) {
@@ -131,7 +141,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
         <View style={s.root}>
             <StatusBar style="light" />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     <View style={s.headerRow}>
                         <TouchableOpacity style={s.backBtn} onPress={goBack}>
                             <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
@@ -156,6 +166,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                         {renderInput('G-Lead Code', commanderCode, setCommanderCode, { autoCapitalize: 'characters' })}
                         {renderInput('Full Name', fullName, setFullName)}
                         {renderInput('Phone Number', phone, setPhone, { keyboardType: 'phone-pad' })}
+                        <TownField value={homeTown} onChange={setHomeTown} />
                         {renderInput('Email Address', email, setEmail, { keyboardType: 'email-address', autoCapitalize: 'none' })}
                         {renderInput('Password', password, setPassword, { secureTextEntry: true })}
                         {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}

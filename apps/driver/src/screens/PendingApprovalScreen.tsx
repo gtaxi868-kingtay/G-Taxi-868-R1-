@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -10,13 +10,25 @@ import Reanimated, {
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+
+type AreaSignups = { town: string | null; riders: number; shops: number; radius_km: number };
+
+export function areaLine(a: AreaSignups) {
+    const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    const who = [a.riders && count(a.riders, 'rider', 'riders'), a.shops && count(a.shops, 'shop', 'shops')].filter(Boolean);
+    const where = a.town ? `within ${a.radius_km} km of ${a.town}` : 'near you';
+    return `${who.join(' and ')} ${a.riders + a.shops === 1 ? 'has' : 'have'} joined ${where}.`;
+}
 
 export function PendingApprovalScreen() {
     const { height } = useWindowDimensions();
     const { signOut } = useAuth();
     const insets = useSafeAreaInsets();
+
+    const [area, setArea] = useState<AreaSignups | null>(null);
 
     const rotation = useSharedValue(0);
 
@@ -25,6 +37,14 @@ export function PendingApprovalScreen() {
             withTiming(360, { duration: 4000, easing: Easing.linear }),
             -1, false
         );
+    }, []);
+
+    useEffect(() => {
+        let live = true;
+        supabase.rpc('driver_area_signups').then(({ data, error }: { data: AreaSignups | null; error: unknown }) => {
+            if (live && !error && data && data.riders + data.shops > 0) setArea(data);
+        }, () => {});
+        return () => { live = false; };
     }, []);
 
     const rotationStyle = useAnimatedStyle(() => ({
@@ -69,6 +89,13 @@ export function PendingApprovalScreen() {
                     YOUR PROFILE IS UNDERGOING SYSTEM COMPLIANCE CHECKS. YOU WILL BE NOTIFIED VIA SECURE PUSH ONCE AUTHORIZED.
                 </Text>
                 
+                {area && (
+                    <View style={s.areaCard}>
+                        <Ionicons name="people-outline" size={18} color={VOICES.driver.accent} />
+                        <Text style={s.areaText}>{areaLine(area)}</Text>
+                    </View>
+                )}
+
                 <View style={s.badge}>
                     <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.gold, letterSpacing: 2}}>
                         TELEMETRY CONNECTED
@@ -100,6 +127,8 @@ const s = StyleSheet.create({
     title: { textAlign: 'center', marginTop: 40, letterSpacing: -0.5 },
     description: { textAlign: 'center', marginTop: 20, lineHeight: 22, opacity: 0.8 },
     badge: { marginTop: 32, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: VOICES.driver.accent + '0D', ...ghostBorder(0.1) },
+    areaCard: { marginTop: 24, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 18, backgroundColor: VOICES.driver.accent + '12', ...ghostBorder(0.15) },
+    areaText: { flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 20, color: '#EAF3F6' },
     footer: { paddingHorizontal: 32 },
     logoutBtn: {
         height: 64,
