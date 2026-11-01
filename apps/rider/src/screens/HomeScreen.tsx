@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
+import { callG, hasRealPlace } from '../services/askG';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { HomeSheet } from '../components/home/HomeSheet';
@@ -447,55 +448,53 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     // Additive: forward a request to G's rider concierge and speak its reply.
     // Consent-gated server-side; if AI is off, G replies without personalization.
     const askConcierge = async (text: string) => {
-        try {
-            const { data, error } = await supabase.functions.invoke('g_rider_concierge', {
-                body: { message: text, lat: currentLat, lng: currentLng }
-            });
-            if (!error && data?.reply) {
-                setAiGreeting(data.reply);
-            } else {
-                setAiGreeting("Sorry, I couldn't process that just now.");
-            }
-        } catch {
-            setAiGreeting("Connection failed. Please try again.");
-        }
+        const { data, problem } = await callG('g_rider_concierge', { message: text, lat: currentLat, lng: currentLng });
+        setAiGreeting(problem ?? data?.reply ?? "I'm here. Tell me where you're going.");
     };
 
     // Shared by both the typed-text path and the real voice-recording path
     // below — handle_voice returns the same {success, intent, destination,
     // reply} shape either way, transcription happens server-side.
     const processVoiceResult = async (data: any, fallbackText: string) => {
-        if (data?.success) {
+        if (data.intent === 'need_destination') {
+            setAiGreeting(data.reply || "I couldn't place that. Pick it from the list.");
+            searchForPlace(data.destination?.label || fallbackText);
+            return;
+        }
+        if (data.intent === 'book_ride' && hasRealPlace(data.destination)) {
             setAiGreeting(data.reply);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-            if (data.intent === 'book_ride' && data.destination) {
-                await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
-                setTimeout(() => {
-                    navigation.navigate('RideConfirmation', {
-                        destination: {
-                            latitude: data.destination.lat,
-                            longitude: data.destination.lng,
-                            address: data.destination.address
-                        },
-                        pickup: {
-                            latitude: currentLat,
-                            longitude: currentLng,
-                            address: 'Current Location'
-                        }
-                    });
-                    clearFarePreview();
-                }, 2000);
-            } else {
-                // Additive: non-ride requests (remember/order/reminder/chat) go to
-                // G's concierge for a richer, memory-aware reply. Ride booking above
-                // is untouched. Concierge is consent-gated + has no payment tools.
-                await askConcierge(data.transcript || fallbackText);
-            }
-        } else {
-            // handle_voice couldn't classify it — let G's concierge try.
-            await askConcierge(fallbackText);
+            await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
+            setTimeout(() => {
+                navigation.navigate('RideConfirmation', {
+                    destination: {
+                        latitude: data.destination.lat,
+                        longitude: data.destination.lng,
+                        address: data.destination.address
+                    },
+                    pickup: {
+                        latitude: currentLat,
+                        longitude: currentLng,
+                        address: 'Current Location'
+                    }
+                });
+                clearFarePreview();
+            }, 2000);
+            return;
         }
+        // Non-ride requests (remember/order/reminder/chat) go to G's concierge
+        // for a richer, memory-aware reply. Concierge is consent-gated and has
+        // no payment tools.
+        const text = data.transcript || fallbackText;
+        if (text) await askConcierge(text);
+        else setAiGreeting(data.reply || "I'm here. Tell me where you're going.");
+    };
+
+    const searchForPlace = (query: string) => {
+        navigation.navigate('DestinationSearch', {
+            currentLocation: { latitude: currentLat, longitude: currentLng, address: 'Your Location' },
+            initialQuery: query,
+        });
     };
 
     const handleVoiceComplete = async (text: string) => {
@@ -504,12 +503,11 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
         setAiGreeting("On it...");
 
         try {
-            const { data } = await supabase.functions.invoke('handle_voice', {
-                body: { text, rider_id: profile.id }
-            });
-            await processVoiceResult(data, text);
-        } catch (err) {
-            setAiGreeting("Connection failed. Please try again.");
+            const { data, problem } = await callG('handle_voice', { text, rider_id: profile.id, lat: currentLat, lng: currentLng });
+            if (problem || !data?.success) await askConcierge(text);
+            else await processVoiceResult(data, text);
+        } catch {
+            setAiGreeting("G couldn't do that right now. You can still type where you're going.");
         } finally {
             setIsAiThinking(false);
         }
@@ -566,10 +564,14 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
             } as any);
             formData.append('rider_id', profile.id);
 
-            const { data } = await supabase.functions.invoke('handle_voice', { body: formData });
-            await processVoiceResult(data, data?.transcript || '');
+            formData.append('lat', String(currentLat));
+            formData.append('lng', String(currentLng));
+
+            const { data, problem } = await callG('handle_voice', formData);
+            if (problem || !data?.success) setAiGreeting(problem ?? "I didn't catch that. Try again, a little closer to the mic.");
+            else await processVoiceResult(data, data.transcript || '');
         } catch (err) {
-            setAiGreeting("Couldn't hear that. Please try again.");
+            setAiGreeting("Couldn't reach the recording. Try again, or type where you're going.");
         } finally {
             setIsAiThinking(false);
         }

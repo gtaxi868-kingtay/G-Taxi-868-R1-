@@ -29,7 +29,7 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
     const signOut = () => {
         Alert.alert('Sign out?', 'You can sign back in any time.', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Sign out', style: 'destructive', onPress: async () => { await supabase.auth.signOut(); } },
+            { text: 'Sign out', style: 'destructive', onPress: async () => { await supabase.auth.signOut({ scope: 'local' }); } },
         ]);
     };
 
