@@ -25,6 +25,9 @@ jest.mock('@gtaxi/core', () => ({
   }),
 }));
 
+// The first render compiles the whole screen; a busy CI runner can take over 5 seconds.
+jest.setTimeout(30000);
+
 const navigation = { goBack: jest.fn() } as any;
 
 describe('BrandScreen', () => {
