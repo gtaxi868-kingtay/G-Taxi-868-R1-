@@ -19,6 +19,7 @@ import { NfcIdentityHandler } from '../components/NfcIdentityHandler';
 import { AreaSafetyCard } from '../components/AreaSafetyCard';
 import { Button, Pop, Progress, Txt, FONT, SPACE, tick, useTheme, usePressScale } from '../ui/kit';
 import { DRIVE_COLORS, greetingFor, ttd } from '../theme/drive';
+import { GButton } from '../components/GButton';
 import {
     computeStreak, goalLine, goalProgress, streakLine, ttDay,
     DEFAULT_GOAL_CENTS, GOAL_CHOICES_CENTS,
@@ -284,6 +285,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             </MapView>
 
             {/* Readability wash under the status bar */}
+            <GButton name={driver?.name?.split(' ')[0]} />
             <LinearGradient pointerEvents="none" colors={m.mapWash as [string, string]} style={[s.topWash, { height: insets.top + 90 }]} />
 
             {/* Top: who you are (left), streak + key reader (right) */}

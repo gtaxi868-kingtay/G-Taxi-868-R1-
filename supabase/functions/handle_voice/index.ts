@@ -69,6 +69,9 @@ serve(async (req: Request) => {
     const contentType = req.headers.get("content-type") || "";
     let text: string;
     let rider_id: string;
+    let riderLat: number | null = null;
+    let riderLng: number | null = null;
+    const coord = (v: unknown) => { const n = Number(v); return v !== null && v !== "" && Number.isFinite(n) ? n : null; };
 
     if (contentType.startsWith("multipart/form-data")) {
       const form = await req.formData();
@@ -76,12 +79,22 @@ serve(async (req: Request) => {
       rider_id = String(form.get("rider_id") || "");
       if (!(audioFile instanceof File)) throw new Error("Missing 'audio' file field");
       if (audioFile.size > MAX_AUDIO_BYTES) throw new Error("Audio clip too large");
+      riderLat = coord(form.get("lat"));
+      riderLng = coord(form.get("lng"));
       text = await transcribeAudio(audioFile);
-      if (!text) throw new Error("Could not understand the recording");
+      if (!text) {
+        return new Response(JSON.stringify({ success: false, code: "no_speech", error: "Could not understand the recording" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // G's full screen sends the words on to the concierge itself.
+      if (form.get("transcribe_only")) {
+        return new Response(JSON.stringify({ success: true, transcript: text }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     } else {
       const body = await req.json();
       text = body.text;
       rider_id = body.rider_id;
+      riderLat = coord(body.lat);
+      riderLng = coord(body.lng);
     }
 
     if (!text || !rider_id) throw new Error("Text and rider_id required");
@@ -164,7 +177,13 @@ serve(async (req: Request) => {
     }
     aiText = aiText.replace(/```json|```/g, "").trim();
 
-    const aiResult = JSON.parse(aiText);
+    // The model can reply in prose; that is a chat, not a failed request.
+    let aiResult: any;
+    try {
+      aiResult = JSON.parse(aiText);
+    } catch {
+      aiResult = { intent: "chat", destination: null, reply: "" };
+    }
 
     if ((aiResult.intent === 'book_ride' || aiResult.intent === 'book_service') && aiResult.destination?.label) {
         let mat = (places || []).find(p => p.label.toLowerCase() === aiResult.destination.label.toLowerCase());
@@ -181,6 +200,23 @@ serve(async (req: Request) => {
                 aiResult.intent = 'book_service';
             }
         }
+    }
+
+    // The model has no map: a spoken place is only real once it has a position.
+    // It fills 0,0 from the example shape, which would book a ride to the sea.
+    const dest = aiResult.destination;
+    const placed = dest && Number(dest.lat) !== 0 && Number(dest.lng) !== 0 && Number.isFinite(Number(dest.lat)) && Number.isFinite(Number(dest.lng));
+    if (aiResult.intent === "book_ride" && !placed) {
+      const label = dest?.label || dest?.address || text;
+      const { data: hits } = await supabaseAdmin.rpc("search_tt_places", { p_query: label, p_lat: riderLat, p_lng: riderLng, p_limit: 1 });
+      const hit = hits?.[0];
+      if (hit && Number(hit.score) >= 60) {
+        aiResult.destination = { label: hit.name, address: hit.area ? `${hit.name}, ${hit.area}` : hit.name, lat: hit.lat, lng: hit.lng };
+      } else {
+        aiResult.intent = "need_destination";
+        aiResult.destination = { label };
+        aiResult.reply = "I couldn't place that. Pick it from the list.";
+      }
     }
 
     return new Response(

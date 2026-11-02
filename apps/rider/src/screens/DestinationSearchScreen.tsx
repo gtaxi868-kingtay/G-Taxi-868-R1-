@@ -21,7 +21,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
     const netInfo = useNetInfo();
     // `stop`: a shop the rider wants to stop at on the way (Home shop card);
     // carried through to RideConfirmation once they pick where they're going.
-    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode, stop, pinned } = route.params || {};
+    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode, stop, pinned, initialQuery } = route.params || {};
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -98,6 +98,10 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
         setIsLoading(true);
         debounceRef.current = setTimeout(() => runSearch(val.trim()), 300);
     };
+
+    useEffect(() => {
+        if (initialQuery) onChangeQuery(initialQuery);
+    }, [initialQuery]);
 
     const runSearch = async (val: string) => {
         const reqId = ++reqIdRef.current;

@@ -1,9 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ENV } from './env';
+import { chunkedStore } from './sessionStore';
 
 export type RuntimePlatform = 'web' | 'native';
 
 let supabaseInstance: SupabaseClient | null = null;
+let savedSessionReader: (() => Promise<any | null>) | null = null;
 
 /**
  * Returns the correct storage adapter for the given runtime platform.
@@ -13,16 +15,11 @@ let supabaseInstance: SupabaseClient | null = null;
 function getStorage(platform: RuntimePlatform): any {
     if (platform === 'native') {
         try {
-            if (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative') {
+            const { Platform } = require('react-native');
+            if (Platform.OS !== 'web') {
                 const SecureStore = require('expo-secure-store');
                 const store = SecureStore.default || SecureStore;
-                if (store && typeof store.getItemAsync === 'function') {
-                    return {
-                        getItem: (key: string) => store.getItemAsync(key),
-                        setItem: (key: string, value: string) => store.setItemAsync(key, value),
-                        removeItem: (key: string) => store.deleteItemAsync(key),
-                    };
-                }
+                if (store && typeof store.getItemAsync === 'function') return chunkedStore(store);
             }
         } catch {
             // Fall through to memory storage
@@ -90,8 +87,20 @@ export function initializeSupabaseClient(platform: RuntimePlatform): {
     const anonKey = ENV.SUPABASE_ANON_KEY;
     const storage = getStorage(platform);
 
+    const storageKey = `sb-${new URL(url).hostname.split('.')[0]}-auth-token`;
+    savedSessionReader = async () => {
+        try {
+            const raw = await storage.getItem(storageKey);
+            const parsed = raw ? JSON.parse(raw) : null;
+            return parsed?.user ? parsed : null;
+        } catch {
+            return null;
+        }
+    };
+
     supabaseInstance = createClient(url, anonKey, {
         auth: {
+            storageKey,
             storage,
             autoRefreshToken: true,
             persistSession: true,
@@ -99,5 +108,23 @@ export function initializeSupabaseClient(platform: RuntimePlatform): {
         },
     });
 
+    if (platform === 'native') {
+        // Timers stop in the background, so pick token refresh back up on return.
+        try {
+            const { AppState } = require('react-native');
+            const client = supabaseInstance;
+            AppState.addEventListener('change', (next: string) => {
+                if (next === 'active') client.auth.startAutoRefresh();
+                else client.auth.stopAutoRefresh();
+            });
+        } catch { /* no AppState here */ }
+    }
+
     return { supabase: supabaseInstance, getSupabase: () => supabaseInstance! };
+}
+
+// The session saved on this phone, even when it has expired or there is no signal.
+// A person stays in the app on this; only a real sign-out takes them to login.
+export async function readSavedSession(): Promise<any | null> {
+    return savedSessionReader ? savedSessionReader() : null;
 }

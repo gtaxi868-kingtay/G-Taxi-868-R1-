@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
+import { Image,
     View, Text, FlatList, TouchableOpacity, StyleSheet,
     Modal, TextInput, Switch, Alert, ActivityIndicator,
     KeyboardAvoidingView, Platform, ScrollView,
@@ -8,6 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { useMerchant } from '../context/MerchantContext';
+import { useMood } from '../ui/mood';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
@@ -67,6 +69,10 @@ const EMPTY_FORM: ProductForm = {
 
 export function ProductCatalogScreen() {
     const insets = useSafeAreaInsets();
+    const { type } = useMerchant();
+    const m = useMood();
+    const title = type?.catalog?.label ?? 'Products';
+    const addLabel = type?.catalog?.addLabel ?? 'Add a product';
     const { user } = useAuth();
 
     const [merchantId, setMerchantId] = useState<string | null>(null);
@@ -236,42 +242,31 @@ export function ProductCatalogScreen() {
         );
     };
 
-    // ── Product row ───────────────────────────────────────────────────────────
+    // ── Shelf card: how the item looks to a customer ──
     const renderProduct = ({ item }: { item: Product }) => (
-        <View style={[s.productRow, glassSurface(0.12)]}>
-            <View style={s.productInfo}>
-                <View style={s.productHeader}>
-                    <Text style={s.productName} numberOfLines={1}>{item.name}</Text>
-                    {item.category && item.category !== 'general' && (
-                        <View style={s.categoryBadge}>
-                            <Text style={s.categoryBadgeText}>
-                                {CATEGORY_LABELS[item.category] ?? item.category}
-                            </Text>
-                        </View>
-                    )}
-                </View>
-                {item.description ? (
-                    <Text style={s.productDesc} numberOfLines={1}>{item.description}</Text>
-                ) : null}
-                <Text style={s.productPrice}>TTD ${(item.price_cents / 100).toFixed(2)}</Text>
-            </View>
-
-            <View style={s.productActions}>
+        <View style={[s.shelfCard, { backgroundColor: m.card, borderColor: m.line, borderBottomColor: m.raised }, !item.is_available && s.shelfOff]}>
+            <TouchableOpacity onPress={() => openEdit(item)} accessibilityRole="button" accessibilityLabel={`Edit ${item.name}`}>
+                {item.image_url ? (
+                    <Image source={{ uri: item.image_url }} style={s.shelfPhoto} accessibilityIgnoresInvertColors />
+                ) : (
+                    <View style={[s.shelfPhoto, s.shelfBlank]}><Ionicons name="image-outline" size={26} color="rgba(233,245,243,0.3)" /></View>
+                )}
+                <Text style={[s.shelfName, { color: m.ink }]} numberOfLines={2}>{item.name}</Text>
+                <Text style={[s.shelfPrice, { color: m.ink }]}>TT${(item.price_cents / 100).toFixed(2)}</Text>
+            </TouchableOpacity>
+            <View style={s.shelfFoot}>
                 {togglingId === item.id ? (
                     <ActivityIndicator size="small" color={ACCENT} />
                 ) : (
                     <Switch
                         value={item.is_available}
                         onValueChange={() => toggleAvailability(item)}
-                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: ACCENT + '66' }}
-                        thumbColor={item.is_available ? ACCENT : 'rgba(255,255,255,0.3)'}
-                        ios_backgroundColor="rgba(255,255,255,0.1)"
+                        trackColor={{ false: m.line, true: m.goldLip }}
+                        thumbColor={item.is_available ? m.goldFace[1] : m.dim}
+                        accessibilityLabel={`${item.name} available`}
                     />
                 )}
-                <TouchableOpacity onPress={() => openEdit(item)} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={`Edit ${item.name}`} accessibilityRole="button">
-                    <Ionicons name="pencil" size={16} color="rgba(255,255,255,0.4)" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => deleteProduct(item)} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={`Delete ${item.name}`} accessibilityRole="button">
+                <TouchableOpacity onPress={() => deleteProduct(item)} style={s.iconBtn} accessibilityRole="button" accessibilityLabel={`Remove ${item.name}`}>
                     <Ionicons name="trash-outline" size={16} color="#EF4444" />
                 </TouchableOpacity>
             </View>
@@ -282,13 +277,13 @@ export function ProductCatalogScreen() {
     const renderEmpty = () => (
         <View style={s.emptyState}>
             <Ionicons name="storefront-outline" size={40} color="rgba(255,255,255,0.1)" />
-            <Text style={s.emptyTitle}>No Products Yet</Text>
+            <Text style={s.emptyTitle}>{`Your ${title.toLowerCase()} is empty`}</Text>
             <Text style={s.emptyDesc}>
-                Add products so riders can browse your store and place orders through G-Taxi.
+                Add what you sell so customers can browse your store.
             </Text>
             <TouchableOpacity style={[s.emptyBtn, { backgroundColor: ACCENT + '22' }]} onPress={openAdd} accessibilityLabel="Add your first product" accessibilityRole="button">
                 <Ionicons name="add" size={18} color={ACCENT} />
-                <Text style={[s.emptyBtnText, { color: ACCENT }]}>Add First Product</Text>
+                <Text style={[s.emptyBtnText, { color: ACCENT }]}>{addLabel}</Text>
             </TouchableOpacity>
         </View>
     );
@@ -297,7 +292,7 @@ export function ProductCatalogScreen() {
     if (loading) {
         return (
             <View style={[s.container, { paddingTop: insets.top }]}>
-                <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: m.page }]} />
                 <View style={s.loadingWrap}>
                     <ActivityIndicator size="large" color={ACCENT} />
                     <Text style={s.loadingText}>Loading catalog</Text>
@@ -308,19 +303,19 @@ export function ProductCatalogScreen() {
 
     return (
         <View style={[s.container, { paddingTop: insets.top }]}>
-            <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: m.page }]} />
 
             {/* Header */}
             <View style={s.header}>
                 <View>
-                    <Text style={s.screenTitle}>Product Catalog</Text>
-                    <Text style={s.productCount}>
+                    <Text style={[s.screenTitle, { color: m.ink }]}>{title}</Text>
+                    <Text style={[s.productCount, { color: m.dim }]}>
                         {products.length} {products.length === 1 ? 'item' : 'items'} ·{' '}
                         {products.filter(p => p.is_available).length} available
                     </Text>
                 </View>
                 <TouchableOpacity style={[s.addBtn, { backgroundColor: ACCENT }]} onPress={openAdd} activeOpacity={0.8} accessibilityLabel="Add new product" accessibilityRole="button">
-                    <Ionicons name="add" size={22} color="#000" />
+                    <Ionicons name="add" size={24} color={m.onGold} />
                 </TouchableOpacity>
             </View>
 
@@ -329,6 +324,8 @@ export function ProductCatalogScreen() {
                 data={products}
                 keyExtractor={item => item.id}
                 renderItem={renderProduct}
+                numColumns={2}
+                columnWrapperStyle={products.length ? s.shelfRow : undefined}
                 ListEmptyComponent={renderEmpty}
                 contentContainerStyle={[
                     s.listContent,
@@ -350,7 +347,7 @@ export function ProductCatalogScreen() {
                     style={s.modalOuter}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
-                    <LinearGradient colors={['#0F0C1A', SURFACE.base]} style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: m.page }]} />
 
                     {/* Modal header */}
                     <View style={s.modalHeader}>
@@ -512,7 +509,7 @@ export function ProductCatalogScreen() {
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: SURFACE.base },
+    container: { flex: 1, backgroundColor: VOICES.merchant.bg },
 
     // Header
     header: {
@@ -522,18 +519,8 @@ const s = StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 16,
     },
-    screenTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#E9F5F3',
-        fontFamily: 'SpaceGrotesk',
-    },
-    productCount: {
-        fontSize: 12,
-        color: VOICES.merchant.textMuted,
-        marginTop: 2,
-        fontFamily: 'Manrope',
-    },
+    screenTitle: { fontFamily: 'Nunito_900Black', fontSize: 30, lineHeight: 36 },
+    productCount: { fontFamily: 'Nunito_700Bold', fontSize: 14 },
     addBtn: {
         width: 44,
         height: 44,
@@ -547,6 +534,14 @@ const s = StyleSheet.create({
     listContentEmpty: { flex: 1 },
 
     // Product row
+    shelfRow: { gap: 12 },
+    shelfCard: { flex: 1, maxWidth: '50%', marginBottom: 12, padding: 10, borderRadius: 22, borderWidth: 2, borderBottomWidth: 5 },
+    shelfOff: { opacity: 0.55 },
+    shelfPhoto: { width: '100%', aspectRatio: 1, borderRadius: 12 },
+    shelfBlank: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(242,204,96,0.10)' },
+    shelfName: { marginTop: 8, minHeight: 38, fontFamily: 'Nunito_800ExtraBold', fontSize: 14, lineHeight: 19 },
+    shelfPrice: { marginTop: 2, fontFamily: 'Nunito_900Black', fontSize: 15.5 },
+    shelfFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
     productRow: {
         borderRadius: 16,
         padding: 16,
@@ -558,7 +553,7 @@ const s = StyleSheet.create({
     },
     productInfo: { flex: 1, minWidth: 0 },
     productHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' },
-    productName: { fontSize: 15, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', flex: 1 },
+    productName: { fontSize: 15, fontWeight: '700', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk', flex: 1 },
     categoryBadge: {
         paddingHorizontal: 8,
         paddingVertical: 2,
@@ -592,7 +587,7 @@ const s = StyleSheet.create({
 
     // Empty
     emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingTop: 80 },
-    emptyTitle: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', marginTop: 16, fontFamily: 'SpaceGrotesk' },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: VOICES.merchant.text, marginTop: 16, fontFamily: 'SpaceGrotesk' },
     emptyDesc: {
         fontSize: 14,
         color: VOICES.merchant.textMuted,
@@ -637,7 +632,7 @@ const s = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#E9F5F3',
+        color: VOICES.merchant.text,
         fontFamily: 'SpaceGrotesk',
     },
     modalClose: {
@@ -668,7 +663,7 @@ const s = StyleSheet.create({
         borderRadius: 14,
         paddingHorizontal: 16,
         paddingVertical: 14,
-        color: '#E9F5F3',
+        color: VOICES.merchant.text,
         fontSize: 15,
         fontFamily: 'Manrope',
     },

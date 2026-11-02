@@ -1,7 +1,9 @@
+import './src/design/sampleFetch';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
+import { Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -10,7 +12,9 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { JoinWithCodeScreen } from './src/screens/JoinWithCodeScreen';
-import { DashboardScreen } from './src/screens/DashboardScreen';
+import { MainTabs } from './src/navigation/MainTabs';
+import { MerchantProvider } from './src/context/MerchantContext';
+import { MoodProvider } from './src/ui/mood';
 import { OrdersScreen } from './src/screens/OrdersScreen';
 import { DispatchScreen } from './src/screens/DispatchScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
@@ -22,6 +26,9 @@ import { AppointmentsScreen } from './src/screens/AppointmentsScreen';
 import { StaffScreen } from './src/screens/StaffScreen';
 import { NfcAcceptPaymentScreen } from './src/screens/NfcAcceptPaymentScreen';
 import { BrandScreen } from './src/screens/BrandScreen';
+import { PromotionsScreen } from './src/screens/PromotionsScreen';
+import { AirportPickupsScreen } from './src/screens/AirportPickupsScreen';
+import { GSpotScreen } from './src/screens/GSpotScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -40,7 +47,7 @@ function AuthNavigator() {
 function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
-      <AppStack.Screen name="Dashboard" component={DashboardScreen} />
+      <AppStack.Screen name="Main" component={MainTabs} />
       <AppStack.Screen name="Orders" component={OrdersScreen} />
       <AppStack.Screen name="Dispatch" component={DispatchScreen} />
       <AppStack.Screen name="Earnings" component={EarningsScreen} />
@@ -51,6 +58,9 @@ function AppNavigator() {
       <AppStack.Screen name="Staff" component={StaffScreen} />
       <AppStack.Screen name="NfcAcceptPayment" component={NfcAcceptPaymentScreen} />
       <AppStack.Screen name="Brand" component={BrandScreen} />
+      <AppStack.Screen name="Promotions" component={PromotionsScreen} />
+      <AppStack.Screen name="AirportPickups" component={AirportPickupsScreen} />
+      <AppStack.Screen name="GSpot" component={GSpotScreen} />
     </AppStack.Navigator>
   );
 }
@@ -64,13 +74,16 @@ function RootNavigator() {
       </View>
     );
   }
-  return user ? <AppNavigator /> : <AuthNavigator />;
+  return user ? <MerchantProvider><MoodProvider><AppNavigator /></MoodProvider></MerchantProvider> : <AuthNavigator />;
 }
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
     CormorantGaramond_500Medium,
     CormorantGaramond_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
   });
   const [fontTimedOut, setFontTimedOut] = useState(false);
 
@@ -84,6 +97,11 @@ export default function App() {
   // a short timeout so the app doesn't sit behind a blank screen forever.
   if (!fontsLoaded && !fontError && !fontTimedOut) {
     return <View style={{ flex: 1, backgroundColor: '#070C0B' }} />;
+  }
+  // Design review (web only): /design-preview?type=food
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.startsWith('/design-preview')) {
+    const { MerchantGallery } = require('./src/design/Gallery');
+    return <SafeAreaProvider><MerchantGallery /></SafeAreaProvider>;
   }
   return (
     <ErrorBoundary moduleName="MerchantMobile">

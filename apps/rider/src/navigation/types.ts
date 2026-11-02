@@ -123,6 +123,8 @@ export type AppStackParamList = {
   Notifications: undefined;
   DestinationSearch: {
     currentLocation?: { latitude: number; longitude: number; address?: string };
+    // What the rider said to G, when G could not place it.
+    initialQuery?: string;
     source?: string;
     sourceMetadata?: Record<string, any>;
     kioskId?: string;

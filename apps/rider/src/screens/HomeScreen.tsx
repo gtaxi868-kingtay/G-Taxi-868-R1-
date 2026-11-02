@@ -10,7 +10,10 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
+import { callG, hasRealPlace } from '../services/askG';
+import { askG } from '@g868/shared/g';
+import { GPresence, type GAction } from '@gtaxi/design-system-native/src/gPresence';
+import { G_PALETTE, G_SCREENS } from '../components/gBrand';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { HomeSheet } from '../components/home/HomeSheet';
@@ -90,8 +93,19 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const nfcDedupCache = useRef<Map<string, number>>(new Map());
     const netInfo = useNetInfo();
 
-    const [voiceModalVisible, setVoiceModalVisible] = useState(false);
-    const [voiceInputText, setVoiceInputText] = useState('');
+    const [gOpen, setGOpen] = useState(false);
+    const [gListen, setGListen] = useState(false);
+    const [gLearns, setGLearns] = useState(true);
+
+    useEffect(() => {
+        if (!gOpen) return;
+        supabase.rpc('g_opt_in_status', { p_role: 'rider' }).then(({ data }: { data: boolean | null }) => setGLearns(data !== false), () => {});
+    }, [gOpen]);
+
+    const letGLearn = async () => {
+        const { data } = await supabase.rpc('g_set_opt_in', { p_role: 'rider', p_on: true }).then((r: any) => r, () => ({ data: null }));
+        if (data?.success) setGLearns(true);
+    };
 
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
@@ -447,55 +461,53 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     // Additive: forward a request to G's rider concierge and speak its reply.
     // Consent-gated server-side; if AI is off, G replies without personalization.
     const askConcierge = async (text: string) => {
-        try {
-            const { data, error } = await supabase.functions.invoke('g_rider_concierge', {
-                body: { message: text, lat: currentLat, lng: currentLng }
-            });
-            if (!error && data?.reply) {
-                setAiGreeting(data.reply);
-            } else {
-                setAiGreeting("Sorry, I couldn't process that just now.");
-            }
-        } catch {
-            setAiGreeting("Connection failed. Please try again.");
-        }
+        const { data, problem } = await callG('g_rider_concierge', { message: text, lat: currentLat, lng: currentLng });
+        setAiGreeting(problem ?? data?.reply ?? "I'm here. Tell me where you're going.");
     };
 
     // Shared by both the typed-text path and the real voice-recording path
     // below — handle_voice returns the same {success, intent, destination,
     // reply} shape either way, transcription happens server-side.
     const processVoiceResult = async (data: any, fallbackText: string) => {
-        if (data?.success) {
+        if (data.intent === 'need_destination') {
+            setAiGreeting(data.reply || "I couldn't place that. Pick it from the list.");
+            searchForPlace(data.destination?.label || fallbackText);
+            return;
+        }
+        if (data.intent === 'book_ride' && hasRealPlace(data.destination)) {
             setAiGreeting(data.reply);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-            if (data.intent === 'book_ride' && data.destination) {
-                await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
-                setTimeout(() => {
-                    navigation.navigate('RideConfirmation', {
-                        destination: {
-                            latitude: data.destination.lat,
-                            longitude: data.destination.lng,
-                            address: data.destination.address
-                        },
-                        pickup: {
-                            latitude: currentLat,
-                            longitude: currentLng,
-                            address: 'Current Location'
-                        }
-                    });
-                    clearFarePreview();
-                }, 2000);
-            } else {
-                // Additive: non-ride requests (remember/order/reminder/chat) go to
-                // G's concierge for a richer, memory-aware reply. Ride booking above
-                // is untouched. Concierge is consent-gated + has no payment tools.
-                await askConcierge(data.transcript || fallbackText);
-            }
-        } else {
-            // handle_voice couldn't classify it — let G's concierge try.
-            await askConcierge(fallbackText);
+            await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
+            setTimeout(() => {
+                navigation.navigate('RideConfirmation', {
+                    destination: {
+                        latitude: data.destination.lat,
+                        longitude: data.destination.lng,
+                        address: data.destination.address
+                    },
+                    pickup: {
+                        latitude: currentLat,
+                        longitude: currentLng,
+                        address: 'Current Location'
+                    }
+                });
+                clearFarePreview();
+            }, 2000);
+            return;
         }
+        // Non-ride requests (remember/order/reminder/chat) go to G's concierge
+        // for a richer, memory-aware reply. Concierge is consent-gated and has
+        // no payment tools.
+        const text = data.transcript || fallbackText;
+        if (text) await askConcierge(text);
+        else setAiGreeting(data.reply || "I'm here. Tell me where you're going.");
+    };
+
+    const searchForPlace = (query: string) => {
+        navigation.navigate('DestinationSearch', {
+            currentLocation: { latitude: currentLat, longitude: currentLng, address: 'Your Location' },
+            initialQuery: query,
+        });
     };
 
     const handleVoiceComplete = async (text: string) => {
@@ -504,12 +516,11 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
         setAiGreeting("On it...");
 
         try {
-            const { data } = await supabase.functions.invoke('handle_voice', {
-                body: { text, rider_id: profile.id }
-            });
-            await processVoiceResult(data, text);
-        } catch (err) {
-            setAiGreeting("Connection failed. Please try again.");
+            const { data, problem } = await callG('handle_voice', { text, rider_id: profile.id, lat: currentLat, lng: currentLng });
+            if (problem || !data?.success) await askConcierge(text);
+            else await processVoiceResult(data, text);
+        } catch {
+            setAiGreeting("G couldn't do that right now. You can still type where you're going.");
         } finally {
             setIsAiThinking(false);
         }
@@ -523,55 +534,18 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
         handleVoiceComplete(text);
     }, [route?.params?.askG, profile?.id]);
 
-    const [isRecordingVoice, setIsRecordingVoice] = useState(false);
-    const voiceRecordingRef = useRef<Audio.Recording | null>(null);
-
-    const startVoiceRecording = async () => {
-        try {
-            const { status } = await Audio.requestPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Microphone Required', 'Enable microphone access to use voice commands.');
-                return;
-            }
-            await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-            const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-            voiceRecordingRef.current = recording;
-            setIsRecordingVoice(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        } catch (err) {
-            Alert.alert('Recording Failed', 'Could not start the microphone. Please try again.');
-        }
-    };
-
-    const stopVoiceRecordingAndSend = async () => {
-        const recording = voiceRecordingRef.current;
-        if (!recording || !profile?.id) return;
-        setIsRecordingVoice(false);
-        voiceRecordingRef.current = null;
-
-        try {
-            await recording.stopAndUnloadAsync();
-            const uri = recording.getURI();
-            if (!uri) throw new Error('No recording produced');
-
-            setVoiceModalVisible(false);
-            setIsAiThinking(true);
-            setAiGreeting("Listening...");
-
-            const formData = new FormData();
-            formData.append('audio', {
-                uri,
-                name: 'voice.m4a',
-                type: 'audio/m4a',
-            } as any);
-            formData.append('rider_id', profile.id);
-
-            const { data } = await supabase.functions.invoke('handle_voice', { body: formData });
-            await processVoiceResult(data, data?.transcript || '');
-        } catch (err) {
-            setAiGreeting("Couldn't hear that. Please try again.");
-        } finally {
-            setIsAiThinking(false);
+    // G's keys. Nothing is booked or bought here: each one opens the normal screen
+    // where the rider confirms.
+    const handleGAction = (a: GAction) => {
+        setGOpen(false);
+        const p = a.payload as { type?: string; lat?: number; lng?: number; address?: string; screen?: string } | undefined;
+        if (p?.type === 'ride' && hasRealPlace(p)) {
+            navigation.navigate('RideConfirmation', {
+                destination: { latitude: Number(p.lat), longitude: Number(p.lng), address: String(p.address ?? '') },
+                pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+            });
+        } else if (p?.type === 'screen' && p.screen && G_SCREENS[p.screen]) {
+            navigation.navigate(G_SCREENS[p.screen] as never);
         }
     };
 
@@ -926,7 +900,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                                     {platformFlags.aiAssistant && (
                                         <Pressable
                                             accessibilityRole="button" accessibilityLabel="Ask G by voice"
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setVoiceInputText(''); setVoiceModalVisible(true); }}
+                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setGListen(true); setGOpen(true); }}
                                             hitSlop={6}
                                             style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}
                                         >
@@ -1132,48 +1106,22 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
             </Modal>
 
             {/* Ask G (voice or typed) */}
-            <Modal visible={voiceModalVisible} transparent animationType="slide" onRequestClose={() => setVoiceModalVisible(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
-                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm, alignItems: 'center' }}>
-                        <Txt variant="title">Ask G</Txt>
-                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs, textAlign: 'center' }}>
-                            {isRecordingVoice ? 'Listening. Tap again to send.' : 'Tap the mic and say where you want to go, or type it.'}
-                        </Txt>
-                        <Pressable
-                            accessibilityRole="button" accessibilityLabel={isRecordingVoice ? 'Stop and send' : 'Start speaking'}
-                            onPress={isRecordingVoice ? stopVoiceRecordingAndSend : startVoiceRecording}
-                            style={{ marginVertical: SPACE.xl }}
-                        >
-                            {isRecordingVoice ? (
-                                <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Ionicons name="stop" size={30} color="#FFFFFF" />
-                                </View>
-                            ) : <BrandBadge icon="mic" size={76} round />}
-                        </Pressable>
-                        <Field
-                            style={{ alignSelf: 'stretch' }}
-                            placeholder="e.g. Take me to Trincity Mall"
-                            value={voiceInputText}
-                            onChangeText={setVoiceInputText}
-                            autoCapitalize="sentences"
-                            returnKeyType="send"
-                            onSubmitEditing={() => {
-                                const text = voiceInputText.trim();
-                                setVoiceModalVisible(false);
-                                if (text) handleVoiceComplete(text);
-                            }}
-                        />
-                        <View style={{ flexDirection: 'row', alignSelf: 'stretch', gap: SPACE.md }}>
-                            <Button title="Cancel" variant="secondary" style={{ flex: 1 }} onPress={() => setVoiceModalVisible(false)} />
-                            <Button title="Send" icon="send" style={{ flex: 1 }} onPress={() => {
-                                const text = voiceInputText.trim();
-                                setVoiceModalVisible(false);
-                                if (text) handleVoiceComplete(text);
-                            }} />
-                        </View>
-                    </View>
-                </KeyboardAvoidingView>
-            </Modal>
+            <GPresence
+                visible={gOpen}
+                palette={G_PALETTE[m.key === 'day' ? 'day' : 'night']}
+                name={profile?.full_name?.split(' ')[0]}
+                hint="Try: take me to Piarco, or what's in my wallet?"
+                startListening={gListen && gLearns}
+                invite={gLearns ? undefined : {
+                    title: 'Let G learn you',
+                    body: 'G will remember your places, your usuals and how you like things, and get better every time. Turn it off any time.',
+                    accept: 'Turn on my G',
+                    onAccept: letGLearn,
+                }}
+                ask={(input) => askG(supabase as any, input, { as: 'rider', lat: currentLat, lng: currentLng })}
+                onAction={handleGAction}
+                onClose={() => setGOpen(false)}
+            />
         </View>
     );
 }

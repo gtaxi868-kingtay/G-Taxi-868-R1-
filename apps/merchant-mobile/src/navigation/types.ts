@@ -6,8 +6,16 @@ export type AuthStackParamList = {
   JoinWithCode: undefined;
 };
 
+export type MainTabParamList = {
+  Home: undefined;
+  Work: undefined;
+  Catalog: undefined;
+  Money: undefined;
+  You: undefined;
+};
+
 export type AppStackParamList = {
-  Dashboard: undefined;
+  Main: undefined;
   Orders: undefined;
   Dispatch: undefined;
   Earnings: undefined;
@@ -18,6 +26,9 @@ export type AppStackParamList = {
   Staff: undefined;
   NfcAcceptPayment: undefined;
   Brand: undefined;
+  Promotions: undefined;
+  AirportPickups: undefined;
+  GSpot: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

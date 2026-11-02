@@ -205,7 +205,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
   if (phase === 'processing') {
     return (
       <View style={[s.container, { paddingTop: insets.top }]}>
-        <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+        <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
         <View style={s.centerContent}>
           <ActivityIndicator size="large" color={VOICES.merchant.accent} />
           <Text style={s.processingText}>Processing payment...</Text>
@@ -218,7 +218,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
   if (phase === 'review') {
     return (
       <View style={[s.container, { paddingTop: insets.top }]}>
-        <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+        <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
         <View style={s.centerContent}>
           <Text style={s.inputLabel}>CHECK BEFORE YOU CHARGE</Text>
           <Text style={s.successAmount}>{ttd(amountCents)}</Text>
@@ -244,7 +244,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
   if (phase === 'success') {
     return (
       <View style={[s.container, { paddingTop: insets.top }]}>
-        <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+        <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
         <View style={s.centerContent}>
           <View style={s.successIcon}>
             <Ionicons name="checkmark-circle" size={64} color="#10B981" />
@@ -272,7 +272,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
-      <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
 
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBack}>
@@ -486,13 +486,13 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SURFACE.base },
+  container: { flex: 1, backgroundColor: VOICES.merchant.bg },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16,
   },
   headerBack: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk' },
   modeTabs: {
     flexDirection: 'row', gap: 8, paddingHorizontal: 24, marginBottom: 8,
   },
@@ -521,7 +521,7 @@ const s = StyleSheet.create({
     backgroundColor: VOICES.merchant.accent + '15',
     justifyContent: 'center', alignItems: 'center',
   },
-  scanTitle: { fontSize: 22, fontWeight: '700', color: '#E9F5F3', marginBottom: 8, fontFamily: 'SpaceGrotesk' },
+  scanTitle: { fontSize: 22, fontWeight: '700', color: VOICES.merchant.text, marginBottom: 8, fontFamily: 'SpaceGrotesk' },
   scanSubtitle: { fontSize: 14, color: VOICES.merchant.textMuted, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
   nfcScanBtn: { overflow: 'hidden',
     flexDirection: 'row', height: 52, borderRadius: 14, backgroundColor: VOICES.merchant.accent,
@@ -535,7 +535,7 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center', alignItems: 'center',
   },
-  cameraOverlayText: { fontSize: 14, color: '#E9F5F3', marginTop: 12, fontFamily: 'Manrope' },
+  cameraOverlayText: { fontSize: 14, color: VOICES.merchant.text, marginTop: 12, fontFamily: 'Manrope' },
   cameraPrompt: {
     height: 240, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)',
     justifyContent: 'center', alignItems: 'center', gap: 12, marginBottom: 16,
@@ -547,7 +547,7 @@ const s = StyleSheet.create({
   inputLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.5)', marginBottom: 8, letterSpacing: 1.5, fontFamily: 'Manrope' },
   textInput: {
     height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: 16, fontSize: 16, color: '#E9F5F3', fontFamily: 'SpaceGrotesk',
+    paddingHorizontal: 16, fontSize: 16, color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk',
   },
   submitBtn: { overflow: 'hidden', height: 52, borderRadius: 14, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   btnDisabled: { opacity: 0.4 },
@@ -556,21 +556,21 @@ const s = StyleSheet.create({
   riderCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 20, padding: 20, marginBottom: 24, gap: 16 },
   riderAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: VOICES.merchant.accent + '20', justifyContent: 'center', alignItems: 'center' },
   riderLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1, fontFamily: 'Manrope' },
-  riderNameValue: { fontSize: 20, fontWeight: '700', color: '#E9F5F3', marginTop: 2, fontFamily: 'SpaceGrotesk' },
+  riderNameValue: { fontSize: 20, fontWeight: '700', color: VOICES.merchant.text, marginTop: 2, fontFamily: 'SpaceGrotesk' },
   riderBalance: { fontSize: 13, color: '#10B981', marginTop: 4, fontFamily: 'Manrope' },
   changeTagBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
   amountCard: { borderRadius: 20, padding: 20 },
   amountInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dollarSign: { fontSize: 32, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
-  amountInput: { flex: 1, height: 60, fontSize: 32, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
+  dollarSign: { fontSize: 32, fontWeight: '700', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk' },
+  amountInput: { flex: 1, height: 60, fontSize: 32, fontWeight: '700', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk' },
   balanceHint: { fontSize: 12, color: '#F59E0B', marginTop: 8, fontFamily: 'Manrope' },
   balanceHintError: { color: '#EF4444' },
   chargeBtn: { overflow: 'hidden', height: 56, borderRadius: 16, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', marginTop: 20 },
   chargeBtnText: { fontSize: 16, fontWeight: '800', color: '#0A0F0E', letterSpacing: 1, fontFamily: 'SpaceGrotesk' },
-  processingText: { fontSize: 20, fontWeight: '700', color: '#E9F5F3', marginTop: 24, fontFamily: 'SpaceGrotesk' },
+  processingText: { fontSize: 20, fontWeight: '700', color: VOICES.merchant.text, marginTop: 24, fontFamily: 'SpaceGrotesk' },
   processingSubtext: { fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 8, fontFamily: 'Manrope' },
   successIcon: { marginBottom: 16 },
-  successTitle: { fontSize: 24, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
+  successTitle: { fontSize: 24, fontWeight: '700', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk' },
   successAmount: { fontSize: 40, fontWeight: '800', color: '#10B981', marginTop: 8, fontFamily: 'SpaceGrotesk' },
   successRider: { fontSize: 16, color: 'rgba(255,255,255,0.6)', marginTop: 4, fontFamily: 'Manrope' },
   balanceRow: { flexDirection: 'row', gap: 8, marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)' },

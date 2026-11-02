@@ -291,6 +291,12 @@ function App() {
         );
     }
 
+    // G, full screen, for design review (web only): /design-preview/g?mood=night
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/design-preview/g') {
+        const { GPreview } = require('./src/screens/design/GPreview');
+        return <SafeAreaProvider><GPreview /></SafeAreaProvider>;
+    }
+
     // Screen gallery for layout review (web only): /design-preview/screens?s=Home
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/design-preview/screens') {
         const s = new URLSearchParams(window.location.search).get('s') || 'Home';

@@ -40,6 +40,7 @@ export default {
       // could never get a push token, so no notification or SOS reached it.
       googleServicesFile: "./google-services.json",
       permissions: [
+        "RECORD_AUDIO",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",

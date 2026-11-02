@@ -56,7 +56,7 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
 
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
       <Reanimated.View entering={FadeIn.springify().mass(ANIMATION.spring.mass).stiffness(ANIMATION.spring.stiffness).damping(ANIMATION.spring.damping)} style={s.content}>
         <Text style={s.title}>Create Account</Text>
         <Text style={s.subtitle}>Register your merchant business</Text>
@@ -73,7 +73,7 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
 
             <TouchableOpacity style={s.termsRow} onPress={() => setAcceptedTerms(!acceptedTerms)}>
               <View style={[s.checkbox, acceptedTerms && { backgroundColor: VOICES.merchant.accent, borderColor: VOICES.merchant.accent }]}>
-                {acceptedTerms && <Ionicons name="checkmark" size={14} color={SURFACE.base} />}
+                {acceptedTerms && <Ionicons name="checkmark" size={14} color={VOICES.merchant.bg} />}
               </View>
               <Text style={s.termsText}>
                 I accept the{' '}
@@ -108,18 +108,18 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
 const s = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#E9F5F3', textAlign: 'center', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 28, fontWeight: '800', color: VOICES.merchant.text, textAlign: 'center', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
   subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 32, fontFamily: 'Manrope' },
   cardBlur: { borderRadius: 24, overflow: 'hidden', ...ghostBorder(0.15) },
   card: { padding: 24 },
-  input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, fontSize: 16, color: '#E9F5F3', marginBottom: 12, ...ghostBorder(0.15), fontFamily: 'Manrope' },
+  input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, fontSize: 16, color: VOICES.merchant.text, marginBottom: 12, ...ghostBorder(0.15), fontFamily: 'Manrope' },
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4, marginBottom: 4 },
   checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 1 },
   termsText: { flex: 1, fontSize: 12, lineHeight: 18, color: 'rgba(255,255,255,0.6)', fontFamily: 'Manrope' },
   termsLink: { color: VOICES.merchant.accent, fontWeight: '600' },
   registerBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
   registerGradient: { padding: 16, alignItems: 'center' },
-  registerBtnText: { color: SURFACE.base, fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk' },
+  registerBtnText: { color: VOICES.merchant.bg, fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk' },
   loginLink: { alignItems: 'center', marginTop: 20 },
   loginText: { color: VOICES.merchant.accent, fontSize: 14, fontWeight: '600', fontFamily: 'Manrope' },
 });

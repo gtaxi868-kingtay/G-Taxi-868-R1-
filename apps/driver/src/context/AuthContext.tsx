@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@gtaxi/core';
+import { readSavedSession } from '@gtaxi/core';
 import { Session, User } from '@supabase/supabase-js';
 import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -104,19 +105,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check active sessions and sets the user
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchDriverProfile(session.user.id);
-            } else {
-                setLoading(false);
+        // Whatever is saved on the phone opens the app straight away, signal or
+        // not. A driver mid-trip must never be sent to login by a dropped signal.
+        readSavedSession().then(async (saved) => {
+            if (saved) {
+                setSession(saved);
+                setUser(saved.user);
+                const cached = await AsyncStorage.getItem(`gtaxi.driver.${saved.user.id}`).catch(() => null);
+                if (cached) { try { setDriver(JSON.parse(cached)); setLoading(false); } catch { /* rebuilt below */ } }
             }
-        });
+            const { data } = await supabase.auth.getSession().then((r) => r, () => ({ data: { session: null } }));
+            const live = data.session;
+            if (live) {
+                setSession(live);
+                setUser(live.user);
+            }
+            const id = live?.user.id ?? saved?.user.id;
+            if (id) fetchDriverProfile(id);
+            else setLoading(false);
+        }).catch(() => setLoading(false));
 
         // Listen for changes on auth state (sign in, sign out, etc.)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            // No session only means signed out when the server says so.
+            if (!session && event !== 'SIGNED_OUT') return;
             setSession(session);
             setUser(session?.user ?? null);
 
@@ -187,10 +199,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.error('Error fetching driver profile:', error);
                 if (error.code === 'PGRST116') {
                     Alert.alert('Access Denied', 'You are not registered as a driver.');
-                    await supabase.auth.signOut();
+                    await supabase.auth.signOut({ scope: 'local' });
                 }
             } else {
                 setDriver(data as DriverProfile);
+                AsyncStorage.setItem(`gtaxi.driver.${userId}`, JSON.stringify(data)).catch(() => {});
                 // Phase 5: Register push token after confirming the driver profile exists.
                 // Fire-and-forget — token registration must never block the login flow.
                 registerPushToken(userId).catch(err =>
@@ -222,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (driver?.is_online) {
             await supabase.from('drivers').update({ is_online: false, status: 'offline' }).eq('user_id', user?.id);
         }
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         setDriver(null);
         setUser(null);
         setSession(null);
