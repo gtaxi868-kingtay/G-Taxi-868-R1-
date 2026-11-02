@@ -62,7 +62,7 @@ describe('reasons and places', () => {
   it('has a plain reason for each failure', () => {
     expect(reasonFor(429, null)).toMatch(/catching up/);
     expect(reasonFor(null, null)).toMatch(/No connection/);
-    expect(reasonFor(500, null)).toMatch(/type where/);
+    expect(reasonFor(500, null)).toMatch(/Try again/);
   });
 
   it('refuses a place with no real position', () => {

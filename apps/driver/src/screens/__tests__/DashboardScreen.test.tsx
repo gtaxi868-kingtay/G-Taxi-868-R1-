@@ -4,6 +4,7 @@ import { DashboardScreen } from '../DashboardScreen';
 
 // Chainable query builder: every filter returns the builder; awaiting it (or
 // maybeSingle) resolves to no rows.
+jest.mock('../../components/GButton', () => ({ GButton: () => null }));
 jest.mock('@gtaxi/core', () => {
   const result = Promise.resolve({ data: null, error: null });
   const q: any = new Proxy({}, { get: (_t, k) => (k === 'then' ? result.then.bind(result) : k === 'maybeSingle' || k === 'single' ? () => result : () => q) });

@@ -11,6 +11,7 @@ const mockQuery = (result: unknown) => {
 };
 const mockTables: Record<string, unknown> = {};
 
+jest.mock('../../components/GButton', () => ({ GButton: () => null }));
 jest.mock('../../context/MerchantContext', () => ({ useMerchant: () => mockState }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-haptics', () => ({ selectionAsync: () => Promise.resolve() }));

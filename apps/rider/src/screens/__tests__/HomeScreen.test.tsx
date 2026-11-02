@@ -2,6 +2,7 @@ import React from 'react';
 import { render, waitFor } from '@testing-library/react-native';
 import { HomeScreen } from '../HomeScreen';
 
+jest.mock('@gtaxi/design-system-native/src/gPresence', () => ({ GPresence: () => null }));
 jest.mock('@gtaxi/core', () => {
   const eqResult = { single: jest.fn(() => Promise.resolve({ data: null, error: null })), maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })), order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) };
   const rpcResult = { maybeSingle: () => Promise.resolve({ data: null, error: null }), single: () => Promise.resolve({ data: null, error: null }), then: (cb: any) => Promise.resolve({ data: [], error: null }).then(cb) };
