@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { flushPendingSignup } from '@g868/shared/pendingSignup';
 import { supabase } from '@gtaxi/core';
+import { readSavedSession } from '@gtaxi/core';
 import { Session, User } from '@supabase/supabase-js';
 import { setAuthToken } from '../services/api';
 import { Platform, Linking } from 'react-native';
@@ -142,7 +143,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 fetchPrefs,
             ]);
 
-            if (profileRes.data) setProfile(profileRes.data);
+            if (profileRes.data) {
+                setProfile(profileRes.data);
+                AsyncStorage.setItem(`gtaxi.profile.${userId}`, JSON.stringify(profileRes.data)).catch(() => {});
+            }
             if (prefRes.data) setPreferences(prefRes.data);
 
             registerPushToken(userId).catch(err =>
@@ -154,37 +158,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
-        // Get initial session with timeout safety
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Session check timeout')), 5000)
-        );
-
-        Promise.race([sessionPromise, timeoutPromise])
-            .then((result: any) => {
-                const session = result.data?.session;
-                setSession(session);
-                setUser(session?.user ?? null);
-                if (session?.access_token) {
-                    setAuthToken(session.access_token);
-                    // Fetch Profile Data Early
-                    if (session.user) fetchUserData(session.user.id);
-                }
-            })
-            .catch((err) => {
-                console.warn('Auth session check failed or timed out:', err);
-                // Even on error, we must unblock the UI
-                setSession(null);
-                setUser(null);
-            })
-            .finally(() => {
+        // Whatever is saved on the phone opens the app straight away, signal or
+        // not. The network check only updates it; a failed check signs nobody out.
+        readSavedSession().then(async (saved) => {
+            if (saved) {
+                setSession(saved);
+                setUser(saved.user);
+                const cached = await AsyncStorage.getItem(`gtaxi.profile.${saved.user.id}`).catch(() => null);
+                if (cached) { try { setProfile(JSON.parse(cached)); } catch { /* rebuilt below */ } }
                 setLoading(false);
-            });
+                setAuthToken(saved.access_token);
+            }
+            const { data } = await supabase.auth.getSession().then((r) => r, () => ({ data: { session: null } }));
+            const live = data.session;
+            if (live) {
+                setSession(live);
+                setUser(live.user);
+                setAuthToken(live.access_token);
+                fetchUserData(live.user.id);
+            } else if (saved) {
+                fetchUserData(saved.user.id);
+            }
+            setLoading(false);
+        }).catch(() => setLoading(false));
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
                 if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
+                // No session only means signed out when the server says so. A
+                // dropped signal must never send someone to the login screen.
+                if (!session && event !== 'SIGNED_OUT') return;
                 setSession(session);
                 setUser(session?.user ?? null);
 

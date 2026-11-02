@@ -95,6 +95,17 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
 
     const [gOpen, setGOpen] = useState(false);
     const [gListen, setGListen] = useState(false);
+    const [gLearns, setGLearns] = useState(true);
+
+    useEffect(() => {
+        if (!gOpen) return;
+        supabase.rpc('g_opt_in_status', { p_role: 'rider' }).then(({ data }: { data: boolean | null }) => setGLearns(data !== false), () => {});
+    }, [gOpen]);
+
+    const letGLearn = async () => {
+        const { data } = await supabase.rpc('g_set_opt_in', { p_role: 'rider', p_on: true }).then((r: any) => r, () => ({ data: null }));
+        if (data?.success) setGLearns(true);
+    };
 
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
@@ -1100,7 +1111,13 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                 palette={G_PALETTE[m.key === 'day' ? 'day' : 'night']}
                 name={profile?.full_name?.split(' ')[0]}
                 hint="Try: take me to Piarco, or what's in my wallet?"
-                startListening={gListen}
+                startListening={gListen && gLearns}
+                invite={gLearns ? undefined : {
+                    title: 'Let G learn you',
+                    body: 'G will remember your places, your usuals and how you like things, and get better every time. Turn it off any time.',
+                    accept: 'Turn on my G',
+                    onAccept: letGLearn,
+                }}
                 ask={(input) => askG(supabase as any, input, { as: 'rider', lat: currentLat, lng: currentLng })}
                 onAction={handleGAction}
                 onClose={() => setGOpen(false)}

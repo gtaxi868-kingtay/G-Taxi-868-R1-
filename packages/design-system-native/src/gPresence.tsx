@@ -79,7 +79,7 @@ function Orb({ state, palette }: { state: GState; palette: GPalette }) {
     );
 }
 
-export function GPresence({ visible, palette, ask, onAction, onClose, name, hint, startListening }: {
+export function GPresence({ visible, palette, ask, onAction, onClose, name, hint, startListening, invite }: {
     visible: boolean;
     palette: GPalette;
     ask: Ask;
@@ -88,6 +88,8 @@ export function GPresence({ visible, palette, ask, onAction, onClose, name, hint
     name?: string;
     hint?: string;
     startListening?: boolean;
+    /** Asks once to let G learn this person. Without it G still works, but forgets. */
+    invite?: { title: string; body: string; accept: string; onAccept: () => void };
 }) {
     const [state, setState] = useState<GState>('ready');
     const [heard, setHeard] = useState('');
@@ -214,6 +216,18 @@ export function GPresence({ visible, palette, ask, onAction, onClose, name, hint
                         </Animated.View>
                     )}
                     {state === 'ready' && hint ? <Text style={[s.hint, { color: palette.dim }]}>{hint}</Text> : null}
+                    {state === 'ready' && invite ? (
+                        <View style={[s.invite, { backgroundColor: palette.field, borderColor: palette.fieldLine }]}>
+                            <Text style={[s.inviteTitle, { color: palette.ink }]}>{invite.title}</Text>
+                            <Text style={[s.hint, { color: palette.dim, marginTop: 4 }]}>{invite.body}</Text>
+                            <Pressable onPress={invite.onAccept} accessibilityRole="button" accessibilityLabel={invite.accept} style={[s.keyWrap, { marginTop: 12, marginBottom: 0 }]}>
+                                <View style={[s.keyLip, { backgroundColor: palette.coreLip }]} />
+                                <LinearGradient colors={palette.core as [string, string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.key}>
+                                    <Text style={[s.keyText, { color: palette.onCore }]}>{invite.accept}</Text>
+                                </LinearGradient>
+                            </Pressable>
+                        </View>
+                    ) : null}
                 </ScrollView>
 
                 <View style={s.bottom}>
@@ -250,6 +264,8 @@ const s = StyleSheet.create({
     status: { fontFamily: 'Nunito_900Black', fontSize: 25, lineHeight: 32, textAlign: 'center' },
     reply: { fontFamily: 'Nunito_800ExtraBold', fontSize: 22, lineHeight: 30, textAlign: 'center', marginBottom: 18 },
     hint: { fontFamily: 'Nunito_700Bold', fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
+    invite: { alignSelf: 'stretch', marginTop: 18, padding: 16, borderRadius: 22, borderWidth: 2 },
+    inviteTitle: { fontFamily: 'Nunito_900Black', fontSize: 17, lineHeight: 23, textAlign: 'center' },
     keyWrap: { alignSelf: 'stretch', marginBottom: 10 },
     keyLip: { position: 'absolute', left: 0, right: 0, top: 5, bottom: 0, borderRadius: 18 },
     key: { minHeight: 54, marginBottom: 5, paddingHorizontal: 18, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },

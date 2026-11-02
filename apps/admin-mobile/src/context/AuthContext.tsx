@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@gtaxi/core';
+import { readSavedSession, supabase } from '@gtaxi/core';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -30,13 +30,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Whatever is saved on the phone opens the app straight away, signal or not.
+    readSavedSession().then(async (saved) => {
+      if (saved) {
+        setSession(saved);
+        setUser(saved.user);
+        setLoading(false);
+      }
+      const { data } = await supabase.auth.getSession().then((r: any) => r, () => ({ data: { session: null } }));
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+      }
       setLoading(false);
     }).catch(() => setLoading(false));
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
+      // No session only means signed out when the server says so.
+      if (!session && event !== 'SIGNED_OUT') return;
       setSession(session);
       setUser(session?.user ?? null);
     });

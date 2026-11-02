@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +19,17 @@ export function GButton({ name }: { name?: string }) {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [open, setOpen] = useState(false);
+    const [learns, setLearns] = useState(true);
+
+    useEffect(() => {
+        if (!open) return;
+        supabase.rpc('g_opt_in_status', { p_role: 'driver' }).then(({ data }: { data: boolean | null }) => setLearns(data !== false), () => {});
+    }, [open]);
+
+    const letGLearn = async () => {
+        const { data } = await supabase.rpc('g_set_opt_in', { p_role: 'driver', p_on: true }).then((r: any) => r, () => ({ data: null }));
+        if (data?.success) setLearns(true);
+    };
 
     const onAction = (a: GAction) => {
         setOpen(false);
@@ -38,6 +49,12 @@ export function GButton({ name }: { name?: string }) {
                 palette={PALETTE}
                 name={name}
                 hint="Try: why was my last payout that amount?"
+                invite={learns ? undefined : {
+                    title: 'Let G learn you',
+                    body: 'G will remember your routes, your notes and how you work, and get better every shift. Turn it off any time.',
+                    accept: 'Turn on my G',
+                    onAccept: letGLearn,
+                }}
                 ask={(input) => askG(supabase as any, input, { as: 'driver' })}
                 onAction={onAction}
                 onClose={() => setOpen(false)}

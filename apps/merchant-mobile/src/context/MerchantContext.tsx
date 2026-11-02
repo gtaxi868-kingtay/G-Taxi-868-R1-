@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from './AuthContext';
 import { businessTypeFor, type BusinessType, type BusinessTypeKey } from '../business/businessTypes';
@@ -42,15 +43,20 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
     const reload = useCallback(async () => {
         if (!user) { setMerchant(null); setLoading(false); return; }
         setFailed(false);
+        // The last known storefront shows at once, so a weak signal never blanks the app.
+        const cacheKey = `gtaxi.merchant.${user.id}`;
+        const cached = await AsyncStorage.getItem(cacheKey).catch(() => null);
+        if (cached) { try { setMerchant(JSON.parse(cached)); setLoading(false); } catch { /* rebuilt below */ } }
+        const keep = (row: Merchant) => { setMerchant(row); AsyncStorage.setItem(cacheKey, JSON.stringify(row)).catch(() => {}); };
         const owned = await supabase.from('merchants').select(COLUMNS).eq('created_by', user.id).maybeSingle();
-        if (owned.data) { setMerchant(owned.data as Merchant); setLoading(false); return; }
+        if (owned.data) { keep(owned.data as Merchant); setLoading(false); return; }
         const staff = await supabase.from('merchant_staff').select('merchant_id').eq('user_id', user.id).maybeSingle();
         if (staff.data?.merchant_id) {
             const row = await supabase.from('merchants').select(COLUMNS).eq('id', staff.data.merchant_id).maybeSingle();
-            setMerchant((row.data as Merchant) ?? null);
-            setFailed(!!row.error);
+            if (row.data) keep(row.data as Merchant);
+            setFailed(!!row.error && !cached);
         } else {
-            setFailed(!!owned.error || !!staff.error);
+            setFailed((!!owned.error || !!staff.error) && !cached);
         }
         setLoading(false);
     }, [user?.id]);
